@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { useGoogleLogin } from "@react-oauth/google";
 import {
   Calendar,
   Clock,
@@ -56,6 +57,8 @@ export default function NewAppointmentPage() {
   const [useSuggestions, setUseSuggestions] = useState(false);
   const [suggestedTimes, setSuggestedTimes] = useState<string[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [googleAuth, setGoogleAuth] = useState<any>(null);
+  const [isCreatingMeet, setIsCreatingMeet] = useState(false);
 
   // Initialize form with default values
   const form = useForm<AppointmentFormValues>({
@@ -88,11 +91,8 @@ export default function NewAppointmentPage() {
     setSuggestionsLoading(true);
 
     try {
-      // In a real implementation, this would call the Nylas API to check availability
-      // Simulate API call with a timeout
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Sample suggested times
       const times = ["09:00", "11:30", "14:00", "16:30"];
       setSuggestedTimes(times);
       setUseSuggestions(true);
@@ -111,7 +111,7 @@ export default function NewAppointmentPage() {
 
   const onSubmit = async (data: AppointmentFormValues) => {
     setIsSubmitting(true);
-
+    console.log(data);
     try {
       const token = localStorage.getItem("token");
 
@@ -131,7 +131,7 @@ export default function NewAppointmentPage() {
             end_time: data.date + " " + data.time,
             location: data.location,
             participants: data.participants,
-            status: "pending",
+            status: "upcoming",
           }),
         }
       );
@@ -154,11 +154,118 @@ export default function NewAppointmentPage() {
     }
   };
 
+  // Google login handler
+  const login = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      // Store the access token
+      setGoogleAuth(tokenResponse);
+      // If we were in the middle of creating a meet, continue the process
+      if (isCreatingMeet) {
+        createGoogleMeet(tokenResponse);
+      }
+    },
+    scope: "https://www.googleapis.com/auth/calendar",
+    flow: "implicit", // Use implicit flow to avoid redirect issues
+    onError: (error) => {
+      console.error("Google login failed:", error);
+      alert("Google login failed. Please try again.");
+      setIsCreatingMeet(false);
+    },
+    // The implicit flow doesn't need or accept redirect_uri or ux_mode
+  });
+
+  // Function to create a Google Meet using our API route
+  const createGoogleMeet = async (authToken: any) => {
+    try {
+      // Show loading state
+      form.setValue("location", "Creating Google Meet...");
+
+      // Get form values
+      const title = form.getValues("title") || "New Meeting";
+      const date = form.getValues("date");
+      const time = form.getValues("time") || "12:00";
+      const durationMinutes = parseInt(form.getValues("duration") || "30");
+      const participantsString = form.getValues("participants") || "";
+
+      // Parse participants into an array of emails
+      const attendeeEmails = participantsString
+        .split(",")
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0);
+
+      // Create attendees array
+      const attendees = attendeeEmails.map((email) => ({ email }));
+
+      // Calculate start and end times
+      const startDateTime = new Date(`${date}T${time}`);
+      const endDateTime = new Date(
+        startDateTime.getTime() + durationMinutes * 60000
+      );
+
+      // Create the calendar event with Google Meet
+      const eventDetails = {
+        summary: title,
+        start: {
+          dateTime: startDateTime.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+        end: {
+          dateTime: endDateTime.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+        attendees: attendees.length > 0 ? attendees : undefined,
+        conferenceData: {
+          createRequest: {
+            requestId: uuidv4(),
+            conferenceSolutionKey: { type: "hangoutsMeet" },
+          },
+        },
+      };
+
+      // Call our API route to create the Google Meet
+      const response = await fetch("/api/google-meet", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          accessToken: authToken.access_token,
+          eventDetails,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create Google Meet");
+      }
+
+      // Set the Google Meet link in the form
+      if (data.meetLink) {
+        form.setValue("location", data.meetLink);
+      } else {
+        throw new Error("Failed to create Google Meet link");
+      }
+    } catch (error) {
+      console.error("Error creating Google Meet:", error);
+      form.setValue("location", "");
+      alert("Could not create Google Meet. Please try again.");
+    } finally {
+      setIsCreatingMeet(false);
+    }
+  };
+
   // Generate a Google Meet link
   const generateMeetLink = () => {
-    // In a real implementation, this would call the Google Meet API
-    alert("This would generate a Google Meet link in a real implementation.");
-    form.setValue("location", "Google Meet (link will be generated)");
+    if (!googleAuth) {
+      // If not authenticated with Google, start the login flow
+      setIsCreatingMeet(true);
+      login();
+      return;
+    }
+
+    // If already authenticated, create the meet
+    createGoogleMeet(googleAuth);
   };
 
   return (
@@ -337,8 +444,13 @@ export default function NewAppointmentPage() {
                       variant="outline"
                       size="sm"
                       onClick={generateMeetLink}
+                      disabled={isCreatingMeet}
                     >
-                      Generate Google Meet Link
+                      {isCreatingMeet
+                        ? "Creating Meet..."
+                        : googleAuth
+                        ? "Generate Google Meet Link"
+                        : "Sign in & Create Google Meet"}
                     </Button>
                   </div>
                   <FormMessage />

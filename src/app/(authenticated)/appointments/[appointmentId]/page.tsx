@@ -3,80 +3,70 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Calendar, Clock, Users, MapPin, FileText, Edit, Trash2 } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  Users,
+  MapPin,
+  FileText,
+  Edit,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 
 type Appointment = {
-  id: string;
+  id: string | number;
   title: string;
-  date: string;
-  time: string;
-  duration: number;
-  participants: string[];
-  location?: string;
-  description?: string;
-  status: "upcoming" | "completed" | "canceled";
+  start_time: string;
+  end_time: string;
+  participants: any;
+  email: string;
+  participantsJson: string;
+  location: string;
+  description: string;
+  status: "upcoming" | "completed" | "canceled" | "pending";
+  created_at?: string;
+  user_id?: number;
 };
 
 export default function AppointmentDetailsPage() {
   const params = useParams();
   const appointmentId = params.appointmentId as string;
+
   const router = useRouter();
-  const { user } = useAuth();
-  
+
+
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
+
+  const token = localStorage.getItem("token");
 
   useEffect(() => {
     // In a real application, this would fetch the appointment details from an API
     const fetchAppointment = async () => {
       setIsLoading(true);
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Sample appointment data based on ID
-        if (appointmentId === "1") {
-          setAppointment({
-            id: "1",
-            title: "Project Review Meeting",
-            date: "2025-05-10",
-            time: "14:00",
-            duration: 60,
-            participants: ["john@example.com", "sarah@example.com"],
-            location: "Google Meet: https://meet.google.com/abc-defg-hij",
-            description: "Quarterly project review meeting to discuss progress and upcoming milestones.",
-            status: "upcoming",
-          });
-        } else if (appointmentId === "2") {
-          setAppointment({
-            id: "2",
-            title: "Client Consultation",
-            date: "2025-05-15",
-            time: "10:30",
-            duration: 45,
-            participants: ["client@example.com"],
-            location: "Conference Room A",
-            description: "Initial consultation to discuss project requirements and timeline.",
-            status: "upcoming",
-          });
-        } else {
-          // If we don't have a predefined appointment, create a sample one
-          setAppointment({
-            id: appointmentId,
-            title: "Sample Appointment",
-            date: "2025-05-20",
-            time: "15:00",
-            duration: 30,
-            participants: ["participant@example.com"],
-            location: "Virtual Meeting",
-            description: "This is a sample appointment description.",
-            status: "upcoming",
-          });
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "x-auth-token": token || "",
+            },
+          }
+        );
+        const data = await response.json();
+        setAppointment(data);
+        console.log(data);
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to fetch appointment");
         }
+        // Simulate API call
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (err) {
         console.error("Error fetching appointment:", err);
         setError("Failed to load appointment details. Please try again.");
@@ -91,8 +81,8 @@ export default function AppointmentDetailsPage() {
   const handleDelete = async () => {
     try {
       // In a real app, this would make an API call to delete the appointment
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       router.push("/appointments");
     } catch (err) {
       console.error("Error deleting appointment:", err);
@@ -100,11 +90,13 @@ export default function AppointmentDetailsPage() {
     }
   };
 
-  const handleStatusChange = async (newStatus: "upcoming" | "completed" | "canceled") => {
+  const handleStatusChange = async (
+    newStatus: "upcoming" | "completed" | "canceled"
+  ) => {
     try {
       // In a real app, this would make an API call to update the appointment status
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       if (appointment) {
         setAppointment({ ...appointment, status: newStatus });
       }
@@ -137,7 +129,9 @@ export default function AppointmentDetailsPage() {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          <p className="mt-4 text-lg font-medium text-gray-700">Loading appointment details...</p>
+          <p className="mt-4 text-lg font-medium text-gray-700">
+            Loading appointment details...
+          </p>
         </div>
       </div>
     );
@@ -161,8 +155,13 @@ export default function AppointmentDetailsPage() {
   if (!appointment) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-900">Appointment Not Found</h2>
-        <p className="mt-2 text-gray-600">The appointment you are looking for does not exist or has been deleted.</p>
+        <h2 className="text-2xl font-bold text-gray-900">
+          Appointment Not Found
+        </h2>
+        <p className="mt-2 text-gray-600">
+          The appointment you are looking for does not exist or has been
+          deleted.
+        </p>
         <div className="mt-6">
           <Link href="/appointments">
             <Button variant="outline">Return to Appointments</Button>
@@ -172,31 +171,50 @@ export default function AppointmentDetailsPage() {
     );
   }
 
-  // Format appointment date
-  const formattedDate = new Date(appointment.date).toLocaleDateString(undefined, {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+  // Format appointment date and times
+  const startDateTime = new Date(appointment?.start_time);
+
+  const formattedDate = startDateTime.toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
+
+  const formattedTime = startDateTime.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  // Calculate duration in minutes if start_time and end_time are available
+  const startTime = new Date(appointment.start_time).getTime();
+  const endTime = new Date(appointment.end_time).getTime();
+  const durationMinutes = Math.round((endTime - startTime) / (1000 * 60));
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-gray-900">{appointment.title}</h1>
-            <span 
+            <h1 className="text-2xl font-bold text-gray-900">
+              {appointment.title}
+            </h1>
+            <span
               className={`ml-4 inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                appointment.status === "upcoming" ? "bg-green-100 text-green-800" :
-                appointment.status === "completed" ? "bg-gray-100 text-gray-800" :
-                "bg-red-100 text-red-800"
+                appointment.status === "upcoming"
+                  ? "bg-green-100 text-green-800"
+                  : appointment.status === "completed"
+                  ? "bg-gray-100 text-gray-800"
+                  : "bg-red-100 text-red-800"
               }`}
             >
-              {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+              {appointment.status.charAt(0).toUpperCase() +
+                appointment.status.slice(1)}
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-600">Appointment details and information</p>
+          <p className="mt-1 text-sm text-gray-600">
+            {appointment?.description}
+          </p>
         </div>
         <div className="flex space-x-3">
           {appointment.status === "upcoming" && (
@@ -207,8 +225,8 @@ export default function AppointmentDetailsPage() {
                   Edit
                 </Button>
               </Link>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 className="flex items-center gap-2"
                 onClick={() => setDeleteConfirmOpen(true)}
               >
@@ -218,8 +236,8 @@ export default function AppointmentDetailsPage() {
             </>
           )}
           {appointment.status === "canceled" && (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex items-center gap-2"
               onClick={() => handleStatusChange("upcoming")}
             >
@@ -228,8 +246,8 @@ export default function AppointmentDetailsPage() {
             </Button>
           )}
           {appointment.status === "upcoming" && (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex items-center gap-2"
               onClick={() => handleStatusChange("completed")}
             >
@@ -242,21 +260,24 @@ export default function AppointmentDetailsPage() {
 
       {deleteConfirmOpen && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <h3 className="text-lg font-medium text-red-800">Cancel this appointment?</h3>
+          <h3 className="text-lg font-medium text-red-800">
+            Cancel this appointment?
+          </h3>
           <p className="mt-2 text-sm text-red-700">
-            Are you sure you want to cancel this appointment? This action cannot be undone and will notify all participants.
+            Are you sure you want to cancel this appointment? This action cannot
+            be undone and will notify all participants.
           </p>
           <div className="mt-4 flex space-x-3">
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               className="flex items-center gap-2"
               onClick={() => handleStatusChange("canceled")}
             >
               <Trash2 className="h-4 w-4" />
               Yes, Cancel Appointment
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setDeleteConfirmOpen(false)}
             >
               No, Keep Appointment
@@ -267,7 +288,9 @@ export default function AppointmentDetailsPage() {
 
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Appointment Information</h2>
+          <h2 className="text-lg font-medium text-gray-900">
+            Appointment Information
+          </h2>
         </div>
         <div className="px-6 py-5">
           <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
@@ -284,7 +307,7 @@ export default function AppointmentDetailsPage() {
                 Time
               </dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {appointment.time} ({appointment.duration} minutes)
+                {formattedTime} ({durationMinutes} minutes)
               </dd>
             </div>
             <div className="sm:col-span-1">
@@ -293,11 +316,17 @@ export default function AppointmentDetailsPage() {
                 Participants
               </dt>
               <dd className="mt-1 text-sm text-gray-900">
-                <ul className="list-disc pl-5 space-y-1">
-                  {appointment.participants.map((participant, index) => (
-                    <li key={index}>{participant}</li>
-                  ))}
-                </ul>
+                {appointment?.participants?.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-1">
+                    {appointment?.participants?.map(
+                      (participant: { email: string }, index: number) => (
+                        <li key={index}>{participant?.email}</li>
+                      )
+                    )}
+                  </ul>
+                ) : (
+                  <span className="text-gray-500">No participants</span>
+                )}
               </dd>
             </div>
             <div className="sm:col-span-1">
@@ -308,9 +337,9 @@ export default function AppointmentDetailsPage() {
               <dd className="mt-1 text-sm text-gray-900">
                 {appointment.location ? (
                   appointment.location.startsWith("http") ? (
-                    <a 
-                      href={appointment.location} 
-                      target="_blank" 
+                    <a
+                      href={appointment.location}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-800 hover:underline"
                     >
@@ -346,9 +375,12 @@ export default function AppointmentDetailsPage() {
               <Calendar className="h-6 w-6 text-blue-600" />
             </div>
             <div className="ml-3">
-              <h3 className="text-lg font-medium text-blue-800">Calendar Integration</h3>
+              <h3 className="text-lg font-medium text-blue-800">
+                Calendar Integration
+              </h3>
               <p className="mt-2 text-sm text-blue-700">
-                This appointment has been added to your calendar. Any changes or cancellations will be automatically updated in your calendar.
+                This appointment has been added to your calendar. Any changes or
+                cancellations will be automatically updated in your calendar.
               </p>
             </div>
           </div>
@@ -363,5 +395,3 @@ export default function AppointmentDetailsPage() {
     </div>
   );
 }
-
-

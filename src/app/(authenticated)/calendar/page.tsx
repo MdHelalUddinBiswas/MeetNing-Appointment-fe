@@ -1,20 +1,29 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Grid, List, PlusCircle } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Grid,
+  List,
+  PlusCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 
 type CalendarEvent = {
-  id: string;
+  id: number;
+  user_id: number;
   title: string;
-  start: Date;
-  end: Date;
-  participants: string[];
-  location?: string;
   description?: string;
-  isAllDay?: boolean;
+  start_time: string; // ISO date string
+  end_time: string; // ISO date string
+  location?: string;
+  participants?: any; // Could be string or array or object
+  status?: string;
+  created_at?: string;
 };
 
 type CalendarViewType = "month" | "week" | "day";
@@ -25,44 +34,75 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isCalendarConnected, setIsCalendarConnected] = useState<boolean>(false);
+  const [isCalendarConnected, setIsCalendarConnected] =
+    useState<boolean>(false);
 
   useEffect(() => {
     // Simulate loading data
     const timer = setTimeout(() => {
       // Placeholder data for demo purposes
       setIsCalendarConnected(false);
-      
+
       // Generate some sample events
       const now = new Date();
-      const sampleEvents: CalendarEvent[] = [
-        {
-          id: "1",
-          title: "Team Standup",
-          start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0),
-          end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 30),
-          participants: ["john@example.com", "sarah@example.com"],
-          location: "Google Meet",
-        },
-        {
-          id: "2",
-          title: "Client Meeting",
-          start: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 14, 0),
-          end: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 15, 0),
-          participants: ["client@example.com"],
-          location: "Conference Room A",
-        },
-        {
-          id: "3",
-          title: "Product Review",
-          start: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 13, 0),
-          end: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 15, 0),
-          participants: ["team@example.com"],
-          location: "Google Meet",
-        },
-      ];
-      
-      setEvents(sampleEvents);
+      const token = localStorage.getItem("token");
+      const fetchEvents = async () => {
+        try {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/appointments`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                "x-auth-token": token || "",
+              },
+            }
+          );
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to fetch appointments");
+          }
+          
+          const data = await response.json();
+          console.log('Fetched appointments:', data);
+          setEvents(data);
+        } catch (error) {
+          console.error('Error fetching events:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchEvents();
+
+      // const sampleEvents: CalendarEvent[] = [
+      //   {
+      //     id: "1",
+      //     title: "Team Standup",
+      //     start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0),
+      //     end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 30),
+      //     participants: ["john@example.com", "sarah@example.com"],
+      //     location: "Google Meet",
+      //   },
+      //   {
+      //     id: "2",
+      //     title: "Client Meeting",
+      //     start: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 14, 0),
+      //     end: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 15, 0),
+      //     participants: ["client@example.com"],
+      //     location: "Conference Room A",
+      //   },
+      //   {
+      //     id: "3",
+      //     title: "Product Review",
+      //     start: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 13, 0),
+      //     end: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 15, 0),
+      //     participants: ["team@example.com"],
+      //     location: "Google Meet",
+      //   },
+      // ];
+
+      // setEvents(sampleEvents);
       setIsLoading(false);
     }, 1000);
 
@@ -90,7 +130,10 @@ export default function CalendarPage() {
 
   // Format current date range based on view type
   const formatDateRange = () => {
-    const options: Intl.DateTimeFormatOptions = { month: "long", year: "numeric" };
+    const options: Intl.DateTimeFormatOptions = {
+      month: "long",
+      year: "numeric",
+    };
     if (viewType === "month") {
       return currentDate.toLocaleDateString(undefined, options);
     } else if (viewType === "week") {
@@ -132,13 +175,18 @@ export default function CalendarPage() {
   };
 
   // Get events for a specific day
-  const getEventsForDay = (day: number, isPrevMonth = false, isNextMonth = false) => {
+  const getEventsForDay = (
+    day: number,
+    isPrevMonth = false,
+    isNextMonth = false
+  ) => {
     const year = currentDate.getFullYear();
-    const month = currentDate.getMonth() + (isPrevMonth ? -1 : isNextMonth ? 1 : 0);
+    const month =
+      currentDate.getMonth() + (isPrevMonth ? -1 : isNextMonth ? 1 : 0);
     const targetDate = new Date(year, month, day);
-    
-    return events.filter(event => {
-      const eventDate = new Date(event.start);
+
+    return events.filter((event) => {
+      const eventDate = new Date(event.start_time);
       return (
         eventDate.getFullYear() === targetDate.getFullYear() &&
         eventDate.getMonth() === targetDate.getMonth() &&
@@ -157,7 +205,10 @@ export default function CalendarPage() {
       <div className="mt-6">
         <div className="grid grid-cols-7 gap-px bg-gray-200">
           {daysOfWeek.map((day) => (
-            <div key={day} className="bg-white py-2 text-center text-sm font-medium text-gray-500">
+            <div
+              key={day}
+              className="bg-white py-2 text-center text-sm font-medium text-gray-500"
+            >
               {day}
             </div>
           ))}
@@ -166,15 +217,22 @@ export default function CalendarPage() {
           {prevMonthDays.map((day) => {
             const dayEvents = getEventsForDay(day, true);
             return (
-              <div key={`prev-${day}`} className="bg-white min-h-[100px] p-2 text-gray-400">
+              <div
+                key={`prev-${day}`}
+                className="bg-white min-h-[100px] p-2 text-gray-400"
+              >
                 <div className="text-right">{day}</div>
                 {dayEvents.map((event) => (
-                  <Link 
-                    href={`/appointments/${event.id}`} 
+                  <Link
+                    href={`/appointments/${event.id}`}
                     key={event.id}
                     className="block mt-1 truncate text-xs bg-gray-100 p-1 rounded text-gray-500"
                   >
-                    {event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {event.title}
+                    {new Date(event.start_time).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}{" "}
+                    {event.title}
                   </Link>
                 ))}
               </div>
@@ -184,26 +242,38 @@ export default function CalendarPage() {
           {/* Current month days */}
           {days.map((day) => {
             const dayEvents = getEventsForDay(day);
-            const isToday = 
-              today.getDate() === day && 
-              today.getMonth() === currentDate.getMonth() && 
+            const isToday =
+              today.getDate() === day &&
+              today.getMonth() === currentDate.getMonth() &&
               today.getFullYear() === currentDate.getFullYear();
-            
+
             return (
-              <div 
-                key={`current-${day}`} 
-                className={`bg-white min-h-[100px] p-2 ${isToday ? 'bg-blue-50' : ''}`}
+              <div
+                key={`current-${day}`}
+                className={`bg-white min-h-[100px] p-2 ${
+                  isToday ? "bg-blue-50" : ""
+                }`}
               >
-                <div className={`text-right ${isToday ? 'bg-blue-500 text-white rounded-full w-6 h-6 ml-auto flex items-center justify-center' : ''}`}>
+                <div
+                  className={`text-right ${
+                    isToday
+                      ? "bg-blue-500 text-white rounded-full w-6 h-6 ml-auto flex items-center justify-center"
+                      : ""
+                  }`}
+                >
                   {day}
                 </div>
                 {dayEvents.map((event) => (
-                  <Link 
-                    href={`/appointments/${event.id}`} 
+                  <Link
+                    href={`/appointments/${event.id}`}
                     key={event.id}
                     className="block mt-1 truncate text-xs bg-blue-100 p-1 rounded text-blue-700"
                   >
-                    {event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {event.title}
+                    {new Date(event.start_time).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}{" "}
+                    {event.title}
                   </Link>
                 ))}
               </div>
@@ -214,15 +284,22 @@ export default function CalendarPage() {
           {nextMonthDays.map((day) => {
             const dayEvents = getEventsForDay(day, false, true);
             return (
-              <div key={`next-${day}`} className="bg-white min-h-[100px] p-2 text-gray-400">
+              <div
+                key={`next-${day}`}
+                className="bg-white min-h-[100px] p-2 text-gray-400"
+              >
                 <div className="text-right">{day}</div>
                 {dayEvents.map((event) => (
-                  <Link 
-                    href={`/appointments/${event.id}`} 
+                  <Link
+                    href={`/appointments/${event.id}`}
                     key={event.id}
                     className="block mt-1 truncate text-xs bg-gray-100 p-1 rounded text-gray-500"
                   >
-                    {event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {event.title}
+                    {new Date(event.start_time).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}{" "}
+                    {event.title}
                   </Link>
                 ))}
               </div>
@@ -251,24 +328,30 @@ export default function CalendarPage() {
           <div className="grid grid-cols-8 gap-px bg-gray-200">
             {/* Empty corner */}
             <div className="bg-white"></div>
-            
+
             {/* Days of the week */}
             {weekDays.map((day, index) => {
               const today = new Date();
-              const isToday = 
-                day.getDate() === today.getDate() && 
-                day.getMonth() === today.getMonth() && 
+              const isToday =
+                day.getDate() === today.getDate() &&
+                day.getMonth() === today.getMonth() &&
                 day.getFullYear() === today.getFullYear();
-              
+
               return (
-                <div 
-                  key={index} 
-                  className={`bg-white py-2 text-center ${isToday ? 'bg-blue-50' : ''}`}
+                <div
+                  key={index}
+                  className={`bg-white py-2 text-center ${
+                    isToday ? "bg-blue-50" : ""
+                  }`}
                 >
                   <div className="text-sm font-medium text-gray-500">
-                    {day.toLocaleDateString(undefined, { weekday: 'short' })}
+                    {day.toLocaleDateString(undefined, { weekday: "short" })}
                   </div>
-                  <div className={`font-medium ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
+                  <div
+                    className={`font-medium ${
+                      isToday ? "text-blue-600" : "text-gray-900"
+                    }`}
+                  >
                     {day.getDate()}
                   </div>
                 </div>
@@ -279,14 +362,15 @@ export default function CalendarPage() {
             {hours.map((hour) => (
               <React.Fragment key={hour}>
                 <div className="bg-white p-2 text-right text-xs text-gray-500 border-t border-gray-200">
-                  {hour % 12 || 12}{hour < 12 ? 'AM' : 'PM'}
+                  {hour % 12 || 12}
+                  {hour < 12 ? "AM" : "PM"}
                 </div>
-                
+
                 {/* Day columns */}
                 {weekDays.map((day, dayIndex) => {
                   // Get events that overlap with this hour
-                  const dayEvents = events.filter(event => {
-                    const eventDay = new Date(event.start);
+                  const dayEvents = events.filter((event) => {
+                    const eventDay = new Date(event.start_time);
                     return (
                       eventDay.getFullYear() === day.getFullYear() &&
                       eventDay.getMonth() === day.getMonth() &&
@@ -294,21 +378,24 @@ export default function CalendarPage() {
                       eventDay.getHours() === hour
                     );
                   });
-                  
+
                   return (
-                    <div 
-                      key={dayIndex} 
+                    <div
+                      key={dayIndex}
                       className="bg-white p-1 border-t border-gray-200 relative min-h-[50px]"
                     >
                       {dayEvents.map((event) => (
-                        <Link 
-                          href={`/appointments/${event.id}`} 
+                        <Link
+                          href={`/appointments/${event.id}`}
                           key={event.id}
                           className="block text-xs bg-blue-100 p-1 rounded text-blue-700 absolute inset-x-1"
                           style={{
-                            top: '0.25rem',
-                            height: `calc(${(event.end.getTime() - event.start.getTime()) / (1000 * 60)}px * 0.8)`,
-                            minHeight: '20px'
+                            top: "0.25rem",
+                            height: `calc(${
+                              (new Date(event.end_time).getTime() - new Date(event.start_time).getTime()) /
+                              (1000 * 60)
+                            }px * 0.8)`,
+                            minHeight: "20px",
                           }}
                         >
                           {event.title}
@@ -328,11 +415,11 @@ export default function CalendarPage() {
   // Render day view
   const renderDayView = () => {
     const hours = Array.from({ length: 14 }, (_, i) => i + 7); // 7 AM to 8 PM
-    
-    const dayEvents = events.filter(event => {
-      const eventDay = new Date(event.start);
+
+    const dayEvents = events.filter((event) => {
+      const eventDay = new Date(event.start_time);
       const selectedDay = new Date(currentDate);
-      
+
       return (
         eventDay.getFullYear() === selectedDay.getFullYear() &&
         eventDay.getMonth() === selectedDay.getMonth() &&
@@ -345,31 +432,42 @@ export default function CalendarPage() {
         <div className="grid grid-cols-1 gap-px bg-gray-200">
           {hours.map((hour) => {
             // Get events that start in this hour
-            const hourEvents = dayEvents.filter(event => {
-              return event.start.getHours() === hour;
+            const hourEvents = dayEvents.filter((event) => {
+              return new Date(event.start_time).getHours() === hour;
             });
-            
+
             return (
-              <div key={hour} className="bg-white flex min-h-[60px] border-t border-gray-200">
+              <div
+                key={hour}
+                className="bg-white flex min-h-[60px] border-t border-gray-200"
+              >
                 <div className="w-20 p-2 text-right text-sm text-gray-500">
-                  {hour % 12 || 12}{hour < 12 ? 'AM' : 'PM'}
+                  {hour % 12 || 12}
+                  {hour < 12 ? "AM" : "PM"}
                 </div>
                 <div className="flex-1 p-1 relative">
                   {hourEvents.map((event) => (
-                    <Link 
-                      href={`/appointments/${event.id}`} 
+                    <Link
+                      href={`/appointments/${event.id}`}
                       key={event.id}
                       className="block bg-blue-100 p-2 rounded text-blue-700 mb-1"
                     >
                       <div className="font-medium">{event.title}</div>
                       <div className="text-xs text-blue-600">
-                        {event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                        {event.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(event.start_time).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}{" "}
+                        -
+                        {new Date(event.end_time).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                         {event.location && ` • ${event.location}`}
                       </div>
-                      {event.participants.length > 0 && (
+                      {event.participants && (
                         <div className="text-xs mt-1">
-                          {event.participants.length} participant{event.participants.length !== 1 ? 's' : ''}
+                          With participants
                         </div>
                       )}
                     </Link>
@@ -406,7 +504,9 @@ export default function CalendarPage() {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          <p className="mt-4 text-lg font-medium text-gray-700">Loading calendar...</p>
+          <p className="mt-4 text-lg font-medium text-gray-700">
+            Loading calendar...
+          </p>
         </div>
       </div>
     );
@@ -417,11 +517,17 @@ export default function CalendarPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
-          <p className="mt-1 text-sm text-gray-600">Manage your appointments and schedule.</p>
+          <p className="mt-1 text-sm text-gray-600">
+            Manage your appointments and schedule.
+          </p>
         </div>
         <div className="mt-4 sm:mt-0 space-y-2 sm:space-y-0 sm:space-x-3 flex flex-col sm:flex-row">
           {!isCalendarConnected && (
-            <Button onClick={connectCalendar} variant="outline" className="flex items-center gap-2">
+            <Button
+              onClick={connectCalendar}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
               <CalendarIcon className="h-4 w-4" />
               Connect Calendar
             </Button>
@@ -451,7 +557,9 @@ export default function CalendarPage() {
             >
               <ChevronRight className="h-5 w-5 text-gray-600" />
             </button>
-            <h2 className="text-lg font-semibold text-gray-900">{formatDateRange()}</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {formatDateRange()}
+            </h2>
             <button
               onClick={() => setCurrentDate(new Date())}
               className="ml-2 px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-md"
@@ -463,19 +571,31 @@ export default function CalendarPage() {
           <div className="flex border border-gray-300 rounded-md overflow-hidden">
             <button
               onClick={() => setViewType("month")}
-              className={`p-2 ${viewType === "month" ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
+              className={`p-2 ${
+                viewType === "month"
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-white text-gray-700"
+              }`}
             >
               <Grid className="h-5 w-5" />
             </button>
             <button
               onClick={() => setViewType("week")}
-              className={`p-2 ${viewType === "week" ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
+              className={`p-2 ${
+                viewType === "week"
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-white text-gray-700"
+              }`}
             >
               <CalendarIcon className="h-5 w-5" />
             </button>
             <button
               onClick={() => setViewType("day")}
-              className={`p-2 ${viewType === "day" ? "bg-blue-100 text-blue-700" : "bg-white text-gray-700"}`}
+              className={`p-2 ${
+                viewType === "day"
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-white text-gray-700"
+              }`}
             >
               <List className="h-5 w-5" />
             </button>
@@ -496,12 +616,19 @@ export default function CalendarPage() {
               <CalendarIcon className="h-6 w-6 text-blue-600" />
             </div>
             <div className="ml-3">
-              <h3 className="text-lg font-medium text-blue-800">Connect your calendar</h3>
+              <h3 className="text-lg font-medium text-blue-800">
+                Connect your calendar
+              </h3>
               <p className="mt-2 text-sm text-blue-700">
-                Connect your Google or Outlook calendar to automatically sync appointments and see them all in one place.
+                Connect your Google or Outlook calendar to automatically sync
+                appointments and see them all in one place.
               </p>
               <div className="mt-4">
-                <Button onClick={connectCalendar} size="sm" className="flex items-center gap-2">
+                <Button
+                  onClick={connectCalendar}
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
                   Connect Calendar
                 </Button>
               </div>
