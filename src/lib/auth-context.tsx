@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 
 interface User {
@@ -15,7 +21,12 @@ type AuthContextType = {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string, timezone: string) => Promise<void>;
+  signup: (
+    name: string,
+    email: string,
+    password: string,
+    timezone: string
+  ) => Promise<void>;
   logout: () => void;
   error: string | null;
 };
@@ -90,7 +101,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signup = async (name: string, email: string, password: string, timezone: string) => {
+  const signup = async (
+    name: string,
+    email: string,
+    password: string,
+    timezone: string
+  ) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -113,7 +129,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // Update user state
       setUser(data.user);
 
       // Navigate to dashboard
