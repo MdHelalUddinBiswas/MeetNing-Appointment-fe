@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET: Fetch a specific event by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { calendarId: string; eventId: string } }
+  context: { params: { calendarId: string; eventId: string } }
 ) {
   try {
     const { calendarId, eventId } = params;

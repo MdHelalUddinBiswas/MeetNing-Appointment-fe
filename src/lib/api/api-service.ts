@@ -1,7 +1,7 @@
 import { AuthResponse, LoginCredentials, SignupCredentials, User, Appointment, CreateAppointmentPayload, ApiResponse, Calendar } from "../types";
 
 // Base API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 // Helper function to handle API responses
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {

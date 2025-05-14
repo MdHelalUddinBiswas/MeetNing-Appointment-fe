@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Calendar, User, Bell, Save, Trash2 } from "lucide-react";
+import { Calendar, User, Bell, Save, Trash2, Link as LinkIcon, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
+import { GoogleIntegration } from "@/components/integrations/GoogleIntegration";
 
 const profileFormSchema = z.object({
   name: z.string().min(2, {
@@ -33,6 +34,7 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 export default function SettingsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
+  const [integrationAdded, setIntegrationAdded] = useState(false);
   const [calendarAccounts, setCalendarAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -80,8 +82,13 @@ export default function SettingsPage() {
 
   // Connect to calendar (would integrate with Nylas in real implementation)
   const connectCalendar = (provider: string) => {
-    window.alert(`This would connect to ${provider} via Nylas in a real implementation`);
-    // In a real app: call nylasService.connectNylas(provider) and handle OAuth flow
+    if (provider === 'google') {
+      // Use our new Google integration instead
+      setActiveTab('integrations');
+    } else {
+      window.alert(`This would connect to ${provider} in a real implementation`);
+      // In a real app: call service.connect(provider) and handle OAuth flow
+    }
   };
 
   return (
@@ -113,6 +120,16 @@ export default function SettingsPage() {
           >
             <Calendar className="h-4 w-4 mr-2" />
             Calendar Connections
+          </button>
+          <button
+            onClick={() => setActiveTab("integrations")}
+            className={`${activeTab === "integrations" 
+              ? "border-blue-500 text-blue-600" 
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"} 
+              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+          >
+            <LinkIcon className="h-4 w-4 mr-2" />
+            Integrations
           </button>
           <button
             onClick={() => setActiveTab("notifications")}
@@ -213,22 +230,7 @@ export default function SettingsPage() {
           </p>
 
           <div className="mt-6 space-y-6">
-            <div className="bg-gray-50 p-4 rounded-md">
-              <h3 className="text-md font-medium text-gray-900">Google Calendar</h3>
-              <p className="mt-1 text-sm text-gray-600">
-                Connect your Google Calendar to automatically sync appointments.
-              </p>
-              <div className="mt-4">
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  onClick={() => connectCalendar('google')}
-                >
-                  <Calendar className="h-4 w-4" />
-                  Connect Google Calendar
-                </Button>
-              </div>
-            </div>
+            <GoogleIntegration onSuccess={() => setIntegrationAdded(prev => !prev)} />
 
             <div className="bg-gray-50 p-4 rounded-md">
               <h3 className="text-md font-medium text-gray-900">Microsoft Outlook</h3>
@@ -256,6 +258,37 @@ export default function SettingsPage() {
                 </ul>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      
+      {/* Integrations Tab */}
+      {activeTab === "integrations" && (
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-lg font-medium text-gray-900">Integrations</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Connect third-party services for video conferencing and calendar management.
+          </p>
+
+          <div className="mt-6 space-y-6">
+            <GoogleIntegration onSuccess={() => setIntegrationAdded(prev => !prev)} />
+            
+            <div className="bg-gray-50 p-4 rounded-md opacity-50">
+              <h3 className="text-md font-medium text-gray-900">Zoom Meetings</h3>
+              <p className="mt-1 text-sm text-gray-600">
+                Connect your Zoom account to create meeting links directly from MeetNing.
+              </p>
+              <div className="mt-4">
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  disabled
+                >
+                  <Video className="h-4 w-4" />
+                  Connect Zoom (Coming Soon)
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
