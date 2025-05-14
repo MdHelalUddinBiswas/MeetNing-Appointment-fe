@@ -185,11 +185,17 @@ export const appointmentsApi = {
     const start = new Date(year, month - 1, day, hours, minutes);
     const end = new Date(start.getTime() + appointment.duration * 60 * 1000);
     
+    // Convert string[] emails to Participant[] objects
+    const formattedParticipants = appointment.participants?.map(email => ({
+      email,
+      name: email.split('@')[0] // Default name from email prefix
+    }));
+    
     return {
       title: appointment.title,
       description: appointment.description,
       location: appointment.location,
-      participants: appointment.participants,
+      participants: formattedParticipants,
       status: appointment.status,
       start_time: start.toISOString(),
       end_time: end.toISOString(),
