@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+type RouteParams = {
+  params: {
+    calendarId: string;
+    eventId: string;
+  }
+};
+
 // GET: Fetch a specific event by ID
-export async function GET(
-  request: NextRequest,
-  context: { params: { calendarId: string; eventId: string } }
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { calendarId, eventId } = params;
     if (!calendarId || !eventId) {
@@ -20,8 +24,9 @@ export async function GET(
     const token = authHeader.split(' ')[1];
     
     // Call backend API to get the specific event from Nylas
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/nylas/calendars/${calendarId}/events/${eventId}`,
+      `${apiUrl}/api/nylas/calendars/${calendarId}/events/${eventId}`,
       {
         method: 'GET',
         headers: {
@@ -48,10 +53,7 @@ export async function GET(
 }
 
 // PUT: Update an existing event
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { calendarId: string; eventId: string } }
-) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { calendarId, eventId } = params;
     if (!calendarId || !eventId) {
@@ -70,8 +72,9 @@ export async function PUT(
     const eventUpdateData = await request.json();
     
     // Call backend API to update event through Nylas
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/nylas/calendars/${calendarId}/events/${eventId}`,
+      `${apiUrl}/api/nylas/calendars/${calendarId}/events/${eventId}`,
       {
         method: 'PUT',
         headers: {
@@ -99,10 +102,7 @@ export async function PUT(
 }
 
 // DELETE: Delete an event
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { calendarId: string; eventId: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { calendarId, eventId } = params;
     if (!calendarId || !eventId) {
@@ -118,8 +118,9 @@ export async function DELETE(
     const token = authHeader.split(' ')[1];
     
     // Call backend API to delete event through Nylas
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/nylas/calendars/${calendarId}/events/${eventId}`,
+      `${apiUrl}/api/nylas/calendars/${calendarId}/events/${eventId}`,
       {
         method: 'DELETE',
         headers: {
