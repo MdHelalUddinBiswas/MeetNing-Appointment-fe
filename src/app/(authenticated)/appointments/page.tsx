@@ -14,98 +14,75 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
 
-type Appointment = {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  duration: number;
-  participants: string[];
-  location?: string;
-  status: "upcoming" | "completed" | "canceled";
-};
+// Import the custom hook and Appointment interface
+import useAppointments, { Appointment } from "../../hooks/Appointment";
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [filteredAppointments, setFilteredAppointments] = useState<
-    Appointment[]
-  >([]);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Use the custom hook to handle appointment data fetching
+  const {
+    appointments,
+    filteredAppointments,
+    isLoading,
+    error,
+    fetchAppointments,
+    filterAppointments,
+  } = useAppointments();
+
+  // Apply search filter whenever search query changes
   useEffect(() => {
-    // Function to fetch appointments
-    const fetchAppointments = async () => {
-      setIsLoading(true);
+    filterAppointments(searchQuery);
+  }, [searchQuery]);
+
+  // Filter appointments based on status and search query
+  // Apply status filter when it changes
+  useEffect(() => {
+    if (activeFilter === "all") {
+      // Just apply the search filter
+      filterAppointments(searchQuery);
+      return;
+    }
+
+    // Filter by both search and status
+    const filtered = appointments.filter(
+      (appointment) => appointment.status === activeFilter
+    );
+
+    // Update the filtered list directly
+    // This works because our search filter is handled separately
+    filterAppointments(searchQuery);
+  }, [activeFilter, appointments]);
+
+  // Delete appointment
+  const deleteAppointment = async (_id: string) => {
+    if (window.confirm("Are you sure you want to delete this appointment?")) {
       try {
         const token = localStorage.getItem("token");
 
+        // Make API call to delete appointment
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/appointments`,
+          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${_id}`,
           {
-            method: "GET",
+            method: "DELETE",
             headers: {
-              "Content-Type": "application/json",
               "x-auth-token": token || "",
             },
           }
         );
 
-        const data = await response.json();
-        console.log(data);
         if (!response.ok) {
-          throw new Error(data.message || "Failed to fetch appointments");
+          throw new Error("Failed to delete appointment");
         }
 
-        // If API call succeeds, use the data from the API
-        setAppointments(data);
-        setFilteredAppointments(data);
-        setIsLoading(false);
+        // Refresh appointments after deletion
+        fetchAppointments();
       } catch (error) {
-        console.error("Error fetching appointments:", error);
+        console.error("Error deleting appointment:", error);
+        alert("Failed to delete appointment");
       }
-    };
-
-    // Call the fetch function
-    fetchAppointments();
-  }, []);
-
-  // Filter appointments based on status and search query
-  useEffect(() => {
-    let filtered = [...appointments];
-
-    // Apply status filter
-    if (activeFilter !== "all") {
-      filtered = filtered.filter(
-        (appointment) => appointment.status === activeFilter
-      );
-    }
-
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (appointment) =>
-          appointment.title.toLowerCase().includes(query) ||
-          appointment.participants.some((participant) =>
-            participant.toLowerCase().includes(query)
-          )
-      );
-    }
-
-    setFilteredAppointments(filtered);
-  }, [appointments, activeFilter, searchQuery]);
-
-  // Delete appointment (would call API in real implementation)
-  const deleteAppointment = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this appointment?")) {
-      // In a real app, make an API call to delete the appointment
-      const updatedAppointments = appointments.filter(
-        (appointment) => appointment.id !== id
-      );
-      setAppointments(updatedAppointments);
     }
   };
 
@@ -240,16 +217,29 @@ export default function AppointmentsPage() {
                       <div className="mt-2 flex items-center text-sm text-gray-500">
                         <Calendar className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
                         <span>
-                          {new Date(appointment.date).toLocaleDateString()} |{" "}
-                          {appointment.time}
+                          {new Date(appointment.start_time).toLocaleDateString()}{" "}
+                          |{" "}
+                          {new Date(appointment.start_time).toLocaleTimeString(
+                            [],
+                            { hour: "2-digit", minute: "2-digit" }
+                          )}
                         </span>
                         <Clock className="flex-shrink-0 mx-1.5 h-4 w-4 text-gray-400" />
-                        <span>{appointment.duration} minutes</span>
+                        <span>
+                          {Math.round(
+                            (new Date(appointment.end_time).getTime() -
+                              new Date(appointment.start_time).getTime()) /
+                              60000
+                          )}{" "}
+                          minutes
+                        </span>
                       </div>
                       <div className="mt-2 flex items-center text-sm text-gray-500">
                         <span className="truncate">
-                          {appointment.participants.length} participant
-                          {appointment.participants.length !== 1 ? "s" : ""}
+                          {appointment.participants?.length || 0} participant
+                          {(appointment.participants?.length || 0) !== 1
+                            ? "s"
+                            : ""}
                           {appointment.location && ` • ${appointment.location}`}
                         </span>
                       </div>
@@ -265,12 +255,15 @@ export default function AppointmentsPage() {
                           : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {appointment.status.charAt(0).toUpperCase() +
-                        appointment.status.slice(1)}
+                      {(appointment.status || "upcoming")
+                        .charAt(0)
+                        .toUpperCase() +
+                        (appointment.status || "upcoming").slice(1)}
                     </span>
                     <button
+                      className="text-red-500 hover:text-red-700"
                       onClick={() => deleteAppointment(appointment.id)}
-                      className="text-gray-400 hover:text-red-500"
+                      aria-label="Delete appointment"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>

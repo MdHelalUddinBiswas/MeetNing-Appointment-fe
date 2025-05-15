@@ -125,7 +125,6 @@ export default function CalendarPage() {
   // Function to connect calendar (would call Nylas API in a real implementation)
   const connectCalendar = () => {
     window.alert("This would connect to Nylas in a real implementation");
-    // In a real app: call nylasService.connectNylas() and handle OAuth flow
   };
 
   // Format current date range based on view type

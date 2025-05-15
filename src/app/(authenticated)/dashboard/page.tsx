@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Calendar, Clock, PlusCircle, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
+import useAppointments, { Appointment } from "@/app/hooks/Appointment";
 
 type UpcomingAppointment = {
   id: string;
@@ -17,44 +18,90 @@ type UpcomingAppointment = {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [isCalendarConnected, setIsCalendarConnected] = useState<boolean>(false);
-  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isCalendarConnected, setIsCalendarConnected] =
+    useState<boolean>(false);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<
+    UpcomingAppointment[]
+  >([]);
 
+  const {
+    appointments,
+    filteredAppointments,
+    isLoading,
+    error,
+    fetchAppointments,
+    filterAppointments,
+  } = useAppointments();
+
+  // Transform appointments data to match the dashboard needs
   useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      // Placeholder data for demo purposes
-      setIsCalendarConnected(false); // In real app, check if user has connected Nylas
-      setUpcomingAppointments([
-        {
-          id: "1",
-          title: "Project Review Meeting",
-          date: "2025-05-09",
-          time: "14:00",
-          duration: 60,
-          participants: ["john@example.com", "sarah@example.com"],
-        },
-        {
-          id: "2",
-          title: "Client Consultation",
-          date: "2025-05-10",
-          time: "10:30",
-          duration: 45,
-          participants: ["client@example.com"],
-        },
-      ]);
-      setIsLoading(false);
-    }, 1000);
+    // First ensure we're not loading and set calendar connection status
+    if (!isLoading) {
+      setIsCalendarConnected(false);
 
-    return () => clearTimeout(timer);
-  }, []);
+      try {
+        // Check if we have appointment data
+        if (appointments && appointments.length > 0) {
+          console.log("Processing", appointments.length, "appointments");
 
-  // Function to connect calendar (would call Nylas API in a real implementation)
-  const connectCalendar = () => {
-    window.alert("This would connect to Nylas in a real implementation");
-    // In a real app: call nylasService.connectNylas() and handle OAuth flow
-  };
+          // Process real data from the API
+          // Type to handle the null values from the mapping operation
+          type ProcessedAppointment = UpcomingAppointment | null;
+
+          // Process appointments in two steps for better type safety
+          // Step 1: Process each appointment and allow nulls for invalid entries
+          const processedAppointments = appointments
+            .filter((apt) => !apt.status || apt.status === "upcoming")
+            .map((apt) => {
+              try {
+                // Handle API's snake_case properties
+                const startDate = new Date(apt.start_time);
+                const endDate = new Date(apt.end_time);
+
+                // Skip invalid dates
+                if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                  return null;
+                }
+
+                // Valid appointment - convert to dashboard format
+                return {
+                  id: apt.id,
+                  title: apt.title,
+                  date: startDate.toISOString().split("T")[0],
+                  time: startDate.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                  duration: Math.round(
+                    (endDate.getTime() - startDate.getTime()) / 60000
+                  ),
+                  participants: Array.isArray(apt.participants)
+                    ? apt.participants
+                    : [],
+                };
+              } catch (e) {
+                console.error("Error processing appointment:", e, apt);
+                return null;
+              }
+            });
+
+          // Step 2: Filter out nulls with explicit type safety
+          const upcoming: UpcomingAppointment[] = processedAppointments.filter(
+            (apt): apt is UpcomingAppointment => apt !== null
+          );
+
+          setUpcomingAppointments(upcoming);
+        } else {
+          // No data or empty array
+          console.log("No appointments found");
+          setUpcomingAppointments([]);
+        }
+      } catch (error) {
+        console.error("Error processing appointments:", error);
+        setUpcomingAppointments([]);
+      }
+    }
+  }, [isLoading, appointments]);
 
   if (isLoading) {
     return (
@@ -79,26 +126,26 @@ export default function DashboardPage() {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          <p className="mt-4 text-lg font-medium text-gray-700">Loading dashboard...</p>
+          <p className="mt-4 text-lg font-medium text-gray-700">
+            Loading dashboard...
+          </p>
         </div>
       </div>
     );
   }
-
+  // Debug our data
+  console.log("appointments raw:", appointments);
+  console.log("upcomingAppointments:", upcomingAppointments);
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-600">Welcome back, {user?.name || "User"}!</p>
+          <p className="mt-1 text-sm text-gray-600">
+            Welcome back, {user?.name || "User"}!
+          </p>
         </div>
         <div className="mt-4 sm:mt-0 space-y-2 sm:space-y-0 sm:space-x-3 flex flex-col sm:flex-row">
-          {!isCalendarConnected && (
-            <Button onClick={connectCalendar} variant="outline" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Connect Calendar
-            </Button>
-          )}
           <Link href="/appointments/new">
             <Button className="flex w-full sm:w-auto items-center gap-2">
               <PlusCircle className="h-4 w-4" />
@@ -116,12 +163,19 @@ export default function DashboardPage() {
               <Calendar className="h-6 w-6 text-blue-600" />
             </div>
             <div className="ml-5">
-              <h3 className="text-lg font-medium text-gray-900">Upcoming Appointments</h3>
-              <p className="text-2xl font-bold text-gray-700">{upcomingAppointments.length}</p>
+              <h3 className="text-lg font-medium text-gray-900">
+                Upcoming Appointments
+              </h3>
+              <p className="text-2xl font-bold text-gray-700">
+                {upcomingAppointments.length}
+              </p>
             </div>
           </div>
           <div className="mt-4">
-            <Link href="/appointments" className="text-sm font-medium text-blue-600 hover:text-blue-800">
+            <Link
+              href="/appointments"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800"
+            >
               View all appointments u2192
             </Link>
           </div>
@@ -133,12 +187,22 @@ export default function DashboardPage() {
               <Users className="h-6 w-6 text-green-600" />
             </div>
             <div className="ml-5">
-              <h3 className="text-lg font-medium text-gray-900">Total Participants</h3>
-              <p className="text-2xl font-bold text-gray-700">{upcomingAppointments.reduce((total, apt) => total + apt.participants.length, 0)}</p>
+              <h3 className="text-lg font-medium text-gray-900">
+                Total Participants
+              </h3>
+              <p className="text-2xl font-bold text-gray-700">
+                {upcomingAppointments.reduce(
+                  (total, apt) => total + apt.participants.length,
+                  0
+                )}
+              </p>
             </div>
           </div>
           <div className="mt-4">
-            <Link href="/contacts" className="text-sm font-medium text-green-600 hover:text-green-800">
+            <Link
+              href="/contacts"
+              className="text-sm font-medium text-green-600 hover:text-green-800"
+            >
               Manage contacts u2192
             </Link>
           </div>
@@ -150,14 +214,23 @@ export default function DashboardPage() {
               <Clock className="h-6 w-6 text-purple-600" />
             </div>
             <div className="ml-5">
-              <h3 className="text-lg font-medium text-gray-900">Meeting Hours</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                Meeting Hours
+              </h3>
               <p className="text-2xl font-bold text-gray-700">
-                {upcomingAppointments.reduce((total, apt) => total + apt.duration, 0) / 60} hrs
+                {upcomingAppointments.reduce(
+                  (total, apt) => total + apt.duration,
+                  0
+                ) / 60}{" "}
+                hrs
               </p>
             </div>
           </div>
           <div className="mt-4">
-            <Link href="/analytics" className="text-sm font-medium text-purple-600 hover:text-purple-800">
+            <Link
+              href="/analytics"
+              className="text-sm font-medium text-purple-600 hover:text-purple-800"
+            >
               View analytics u2192
             </Link>
           </div>
@@ -167,20 +240,28 @@ export default function DashboardPage() {
       {/* Upcoming appointments */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Upcoming Appointments</h3>
+          <h3 className="text-lg font-medium text-gray-900">
+            Upcoming Appointments
+          </h3>
         </div>
         {upcomingAppointments.length > 0 ? (
           <ul className="divide-y divide-gray-200">
             {upcomingAppointments.map((appointment) => (
               <li key={appointment.id} className="px-6 py-4">
-                <Link href={`/appointments/${appointment.id}`} className="block hover:bg-gray-50">
+                <Link
+                  href={`/appointments/${appointment.id}`}
+                  className="block hover:bg-gray-50"
+                >
                   <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-blue-600">{appointment.title}</p>
+                      <p className="truncate text-sm font-medium text-blue-600">
+                        {appointment.title}
+                      </p>
                       <div className="flex mt-2">
                         <p className="flex items-center text-sm text-gray-500">
                           <Calendar className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                          {new Date(appointment.date).toLocaleDateString()} | {appointment.time}
+                          {new Date(appointment.date).toLocaleDateString()} |{" "}
+                          {appointment.time}
                         </p>
                         <p className="ml-6 flex items-center text-sm text-gray-500">
                           <Clock className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
@@ -190,7 +271,8 @@ export default function DashboardPage() {
                     </div>
                     <div className="ml-4 flex-shrink-0">
                       <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                        {appointment.participants.length} participant{appointment.participants.length !== 1 ? "s" : ""}
+                        {appointment.participants.length} participant
+                        {appointment.participants.length !== 1 ? "s" : ""}
                       </span>
                     </div>
                   </div>
@@ -213,8 +295,11 @@ export default function DashboardPage() {
         )}
         {upcomingAppointments.length > 0 && (
           <div className="border-t border-gray-200 px-6 py-3 flex justify-end">
-            <Link href="/appointments" className="text-sm font-medium text-blue-600 hover:text-blue-800">
-              View all appointments u2192
+            <Link
+              href="/appointments"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800"
+            >
+              View all appointments {appointments.length}
             </Link>
           </div>
         )}
@@ -228,16 +313,14 @@ export default function DashboardPage() {
               <Calendar className="h-6 w-6 text-blue-600" />
             </div>
             <div className="ml-3">
-              <h3 className="text-lg font-medium text-blue-800">Connect your calendar</h3>
+              <h3 className="text-lg font-medium text-blue-800">
+                Connect your calendar
+              </h3>
               <p className="mt-2 text-sm text-blue-700">
-                Connect your Google or Outlook calendar to start scheduling appointments and have them automatically
-                synced with your existing calendar.
+                Connect your Google or Outlook calendar to start scheduling
+                appointments and have them automatically synced with your
+                existing calendar.
               </p>
-              <div className="mt-4">
-                <Button onClick={connectCalendar} size="sm" className="flex items-center gap-2">
-                  Connect Calendar
-                </Button>
-              </div>
             </div>
           </div>
         </div>

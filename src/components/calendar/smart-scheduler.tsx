@@ -3,10 +3,8 @@
 import { useState } from "react";
 import { format, addDays, setHours, setMinutes } from "date-fns";
 import { Calendar, Clock, Users, Check } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import nylasService from "@/lib/api/nylas-service";
 
 interface SmartSchedulerProps {
   onTimeSelected?: (start: Date, end: Date) => void;
@@ -68,70 +66,91 @@ export function SmartScheduler({ onTimeSelected }: SmartSchedulerProps) {
       // Extract participants (this is a very simplified implementation)
       const emailPattern = /[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}/g;
       const extractedEmails = naturalLanguageInput.match(emailPattern) || [];
-      
+
       // Extract duration
       const durationPattern = /(\d+)\s*(min|minute|minutes|hour|hours|hr|hrs)/i;
       const durationMatch = naturalLanguageInput.match(durationPattern);
       let extractedDuration = 30; // default 30 minutes
-      
+
       if (durationMatch) {
         const value = parseInt(durationMatch[1]);
         const unit = durationMatch[2].toLowerCase();
-        
+
         if (!isNaN(value)) {
-          if (unit.startsWith('hour') || unit === 'hr' || unit === 'hrs') {
+          if (unit.startsWith("hour") || unit === "hr" || unit === "hrs") {
             extractedDuration = value * 60;
           } else {
             extractedDuration = value;
           }
         }
       }
-      
+
       // Update state with extracted information
       if (extractedEmails.length > 0) {
         setParticipants(extractedEmails);
       }
-      
+
       if (extractedDuration !== duration) {
         setDuration(extractedDuration);
         setDurationInput(extractedDuration.toString());
       }
-      
-      // Generate suggested time slots
-      // For a real implementation, this would use the nylasService.findAvailableTimes API
+
       setTimeout(() => {
         // Mock suggested time slots
         const now = new Date();
         const startOfDay = setHours(setMinutes(now, 0), 9); // 9:00 AM
-        
+
         const mockSlots: AvailabilitySlot[] = [
           {
             start: addDays(startOfDay, 1),
-            end: addDays(setHours(setMinutes(now, 0), 9 + Math.floor(extractedDuration / 60)), 1),
-            score: 100
+            end: addDays(
+              setHours(
+                setMinutes(now, 0),
+                9 + Math.floor(extractedDuration / 60)
+              ),
+              1
+            ),
+            score: 100,
           },
           {
             start: addDays(setHours(setMinutes(now, 0), 14), 1), // Tomorrow 2:00 PM
-            end: addDays(setHours(setMinutes(now, 0), 14 + Math.floor(extractedDuration / 60)), 1),
-            score: 90
+            end: addDays(
+              setHours(
+                setMinutes(now, 0),
+                14 + Math.floor(extractedDuration / 60)
+              ),
+              1
+            ),
+            score: 90,
           },
           {
             start: addDays(setHours(setMinutes(now, 0), 11), 2), // Day after tomorrow 11:00 AM
-            end: addDays(setHours(setMinutes(now, 0), 11 + Math.floor(extractedDuration / 60)), 2),
-            score: 85
+            end: addDays(
+              setHours(
+                setMinutes(now, 0),
+                11 + Math.floor(extractedDuration / 60)
+              ),
+              2
+            ),
+            score: 85,
           },
           {
             start: addDays(setHours(setMinutes(now, 0), 15), 2), // Day after tomorrow 3:00 PM
-            end: addDays(setHours(setMinutes(now, 0), 15 + Math.floor(extractedDuration / 60)), 2),
-            score: 80
+            end: addDays(
+              setHours(
+                setMinutes(now, 0),
+                15 + Math.floor(extractedDuration / 60)
+              ),
+              2
+            ),
+            score: 80,
           },
         ];
-        
+
         setSuggestedSlots(mockSlots);
         setIsLoading(false);
         setProcessingText("");
       }, 2000);
-
     } catch (error: any) {
       console.error("Smart scheduling error:", error);
       setError(error.message || "Failed to process scheduling request");
@@ -154,7 +173,7 @@ export function SmartScheduler({ onTimeSelected }: SmartSchedulerProps) {
     if (onTimeSelected) {
       onTimeSelected(slot.start, slot.end);
     }
-    
+
     // Show success message
     setSuccess(true);
     setSuggestedSlots([]);
@@ -166,7 +185,8 @@ export function SmartScheduler({ onTimeSelected }: SmartSchedulerProps) {
       <div className="space-y-2">
         <h3 className="text-lg font-medium">Smart Scheduling Assistant</h3>
         <p className="text-sm text-gray-500">
-          Describe your meeting in natural language and our AI will find the best times.
+          Describe your meeting in natural language and our AI will find the
+          best times.
         </p>
       </div>
 
@@ -185,7 +205,10 @@ export function SmartScheduler({ onTimeSelected }: SmartSchedulerProps) {
 
       <div className="flex flex-col space-y-4">
         <div className="flex flex-col space-y-2">
-          <label htmlFor="nlp-input" className="text-sm font-medium text-gray-700">
+          <label
+            htmlFor="nlp-input"
+            className="text-sm font-medium text-gray-700"
+          >
             Describe your meeting
           </label>
           <div className="flex">
@@ -212,8 +235,10 @@ export function SmartScheduler({ onTimeSelected }: SmartSchedulerProps) {
         {/* Extracted Information */}
         {(participants.length > 0 || duration !== 30) && (
           <div className="bg-gray-50 p-4 rounded-md">
-            <h4 className="font-medium text-sm mb-2">We found the following details:</h4>
-            
+            <h4 className="font-medium text-sm mb-2">
+              We found the following details:
+            </h4>
+
             {participants.length > 0 && (
               <div className="flex items-start mb-2">
                 <Users className="h-4 w-4 text-gray-500 mr-2 mt-0.5" />
@@ -221,7 +246,10 @@ export function SmartScheduler({ onTimeSelected }: SmartSchedulerProps) {
                   <span className="text-sm font-medium">Participants:</span>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {participants.map((email, i) => (
-                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                      <span
+                        key={i}
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                      >
                         {email}
                       </span>
                     ))}
@@ -229,7 +257,7 @@ export function SmartScheduler({ onTimeSelected }: SmartSchedulerProps) {
                 </div>
               </div>
             )}
-            
+
             <div className="flex items-center">
               <Clock className="h-4 w-4 text-gray-500 mr-2" />
               <span className="text-sm font-medium">Duration:</span>
@@ -269,21 +297,27 @@ export function SmartScheduler({ onTimeSelected }: SmartSchedulerProps) {
                   <Calendar className="h-5 w-5 text-blue-500" />
                   <div>
                     <div className="font-medium">
-                      {format(slot.start, 'EEE, MMM d')}
+                      {format(slot.start, "EEE, MMM d")}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {format(slot.start, 'h:mm a')} - {format(slot.end, 'h:mm a')}
+                      {format(slot.start, "h:mm a")} -{" "}
+                      {format(slot.end, "h:mm a")}
                     </div>
                     {slot.score && (
                       <div className="mt-1">
                         <div className="h-1.5 w-24 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-green-500 rounded-full" 
+                          <div
+                            className="h-full bg-green-500 rounded-full"
                             style={{ width: `${slot.score}%` }}
                           ></div>
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
-                          {slot.score >= 90 ? 'Excellent' : slot.score >= 80 ? 'Good' : 'Fair'} availability
+                          {slot.score >= 90
+                            ? "Excellent"
+                            : slot.score >= 80
+                            ? "Good"
+                            : "Fair"}{" "}
+                          availability
                         </div>
                       </div>
                     )}

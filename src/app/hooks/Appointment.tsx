@@ -1,0 +1,94 @@
+import { useState, useEffect } from 'react';
+
+export interface Appointment {
+  id: string;
+  title: string;
+  start_time: string;  // Changed to match API's snake_case
+  end_time: string;    // Changed to match API's snake_case
+  description?: string;
+  location?: string;
+  participants: string[];
+  status?: "upcoming" | "completed" | "canceled";
+  // Add other API fields
+  created_at?: string;
+  user_id?: string;
+}
+
+const useAppointments = () => {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAppointments = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/appointments`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "x-auth-token": token || "",
+          },
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch appointments");
+      }
+
+      setAppointments(data);
+      setFilteredAppointments(data);
+      return data;
+    } catch (error: any) {
+      console.error("Error fetching appointments:", error);
+      setError(error.message || 'Failed to fetch appointments');
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to filter appointments based on search query
+  const filterAppointments = (query: string) => {
+    if (!query.trim()) {
+      setFilteredAppointments(appointments);
+      return;
+    }
+    
+    const filtered = appointments.filter((appointment) => {
+      const searchableText = [
+        appointment.title,
+        appointment.description,
+        appointment.location,
+        // Add other searchable fields
+      ].filter(Boolean).join(' ').toLowerCase();
+      
+      return searchableText.includes(query.toLowerCase());
+    });
+    
+    setFilteredAppointments(filtered);
+  };
+
+  // Load appointments on mount
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  return {
+    appointments,
+    filteredAppointments,
+    isLoading,
+    error,
+    fetchAppointments,
+    filterAppointments,
+  };
+};
+
+export default useAppointments;

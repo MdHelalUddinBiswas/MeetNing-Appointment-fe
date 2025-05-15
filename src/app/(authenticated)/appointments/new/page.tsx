@@ -160,7 +160,9 @@ export default function NewAppointmentPage() {
         participants: participants,
         status: "upcoming",
         ...(user?.id && { user_id: user.id }),
-        ...(data.location?.includes("meet.google.com") && { google_meet_link: data.location }),
+        ...(data.location?.includes("meet.google.com") && {
+          google_meet_link: data.location,
+        }),
       };
 
       // Use the correct backend API endpoint from environment variables
@@ -189,11 +191,9 @@ export default function NewAppointmentPage() {
       }
 
       const postData = await response.json();
-      alert("Appointment created successfully!");
       router.push("/appointments");
     } catch (error) {
       console.error("Error creating appointment:", error);
-      // Show more detailed error message
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
       alert(`Failed to create appointment: ${errorMessage}`);
@@ -338,7 +338,7 @@ export default function NewAppointmentPage() {
   // Check token validity helper function to avoid code duplication
   const isTokenValid = (tokenExpiry: string | null): boolean => {
     return tokenExpiry ? parseInt(tokenExpiry) > Date.now() : false;
-  }
+  };
 
   // Load stored token on component mount
   useEffect(() => {
