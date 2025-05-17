@@ -58,17 +58,19 @@ export default function CalendarPage() {
               },
             }
           );
-          
+
           if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.message || "Failed to fetch appointments");
+            throw new Error(
+              errorData.message || "Failed to fetch appointments"
+            );
           }
-          
+
           const data = await response.json();
-          console.log('Fetched appointments:', data);
+          console.log("Fetched appointments:", data);
           setEvents(data);
         } catch (error) {
-          console.error('Error fetching events:', error);
+          console.error("Error fetching events:", error);
         } finally {
           setIsLoading(false);
         }
@@ -120,11 +122,6 @@ export default function CalendarPage() {
       newDate.setDate(newDate.getDate() + (direction === "next" ? 1 : -1));
     }
     setCurrentDate(newDate);
-  };
-
-  // Function to connect calendar (would call Nylas API in a real implementation)
-  const connectCalendar = () => {
-    window.alert("This would connect to Nylas in a real implementation");
   };
 
   // Format current date range based on view type
@@ -391,7 +388,8 @@ export default function CalendarPage() {
                           style={{
                             top: "0.25rem",
                             height: `calc(${
-                              (new Date(event.end_time).getTime() - new Date(event.start_time).getTime()) /
+                              (new Date(event.end_time).getTime() -
+                                new Date(event.start_time).getTime()) /
                               (1000 * 60)
                             }px * 0.8)`,
                             minHeight: "20px",
@@ -465,9 +463,7 @@ export default function CalendarPage() {
                         {event.location && ` • ${event.location}`}
                       </div>
                       {event.participants && (
-                        <div className="text-xs mt-1">
-                          With participants
-                        </div>
+                        <div className="text-xs mt-1">With participants</div>
                       )}
                     </Link>
                   ))}
@@ -521,16 +517,6 @@ export default function CalendarPage() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 space-y-2 sm:space-y-0 sm:space-x-3 flex flex-col sm:flex-row">
-          {!isCalendarConnected && (
-            <Button
-              onClick={connectCalendar}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <CalendarIcon className="h-4 w-4" />
-              Connect Calendar
-            </Button>
-          )}
           <Link href="/appointments/new">
             <Button className="flex w-full sm:w-auto items-center gap-2">
               <PlusCircle className="h-4 w-4" />
@@ -622,15 +608,6 @@ export default function CalendarPage() {
                 Connect your Google or Outlook calendar to automatically sync
                 appointments and see them all in one place.
               </p>
-              <div className="mt-4">
-                <Button
-                  onClick={connectCalendar}
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  Connect Calendar
-                </Button>
-              </div>
             </div>
           </div>
         </div>

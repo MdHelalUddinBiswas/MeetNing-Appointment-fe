@@ -12,7 +12,20 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
+import { Resend } from "resend";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
 
 type Appointment = {
@@ -36,10 +49,12 @@ export default function AppointmentDetailsPage() {
 
   const router = useRouter();
 
-
   const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newParticipantEmail, setNewParticipantEmail] = useState("");
+  const [newParticipantName, setNewParticipantName] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
 
   const token = localStorage.getItem("token");
@@ -47,7 +62,7 @@ export default function AppointmentDetailsPage() {
   useEffect(() => {
     // In a real application, this would fetch the appointment details from an API
     const fetchAppointment = async () => {
-      setIsLoading(true);
+      setLoading(true);
       try {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
@@ -71,7 +86,7 @@ export default function AppointmentDetailsPage() {
         console.error("Error fetching appointment:", err);
         setError("Failed to load appointment details. Please try again.");
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
@@ -87,6 +102,94 @@ export default function AppointmentDetailsPage() {
     } catch (err) {
       console.error("Error deleting appointment:", err);
       setError("Failed to delete appointment. Please try again.");
+    }
+  };
+
+  const handleAddParticipant = async () => {
+    if (!newParticipantEmail) {
+      setError("Email is required");
+      return;
+    }
+
+    try {
+      const newParticipant = {
+        email: newParticipantEmail,
+        name: newParticipantName || undefined,
+      };
+
+      const currentParticipants = appointment?.participants || [];
+
+      const updatedParticipants = [...currentParticipants, newParticipant];
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            participants: updatedParticipants,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("Participant added successfully");
+
+        // Send email notification via server-side API route
+        try {
+          const emailResponse = await fetch("/api/send-email", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              to: newParticipantEmail, // Send to the newly added participant
+              subject: `You've been added to "${appointment?.title}" appointment`,
+              appointmentTitle: appointment?.title,
+              startTime: appointment?.start_time || "",
+              location: appointment?.location || "Not specified",
+            }),
+          });
+
+          const emailResult = await emailResponse.json();
+          if (emailResult.success) {
+            console.log("Email notification sent successfully");
+          } else {
+            console.error(
+              "Failed to send email notification:",
+              emailResult.error
+            );
+          }
+        } catch (emailError) {
+          console.error("Error sending email notification:", emailError);
+          // Don't throw here to avoid breaking the participant addition flow
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to add participant");
+      }
+
+      // Update the local appointment data with the new participant
+      if (appointment) {
+        setAppointment({
+          ...appointment,
+          participants: updatedParticipants,
+        });
+      }
+
+      // Close dialog and reset fields
+      setDialogOpen(false);
+      setNewParticipantEmail("");
+      setNewParticipantName("");
+    } catch (error) {
+      console.error("Error adding participant:", error);
+      setError("Failed to add participant. Please try again.");
     }
   };
 
@@ -106,7 +209,7 @@ export default function AppointmentDetailsPage() {
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
@@ -204,8 +307,8 @@ export default function AppointmentDetailsPage() {
                 appointment.status === "upcoming"
                   ? "bg-green-100 text-green-800"
                   : appointment.status === "completed"
-                  ? "bg-gray-100 text-gray-800"
-                  : "bg-red-100 text-red-800"
+                    ? "bg-gray-100 text-gray-800"
+                    : "bg-red-100 text-red-800"
               }`}
             >
               {appointment.status.charAt(0).toUpperCase() +
@@ -391,6 +494,54 @@ export default function AppointmentDetailsPage() {
         <Link href="/appointments">
           <Button variant="outline">Back to Appointments</Button>
         </Link>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>Add Participant</Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add New Participant</DialogTitle>
+              <DialogDescription>
+                Add a new participant to this appointment. They will receive
+                notification about the meeting details.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newParticipantEmail}
+                  onChange={(e) => setNewParticipantEmail(e.target.value)}
+                  placeholder="participant@example.com"
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Name (Optional)
+                </Label>
+                <Input
+                  id="name"
+                  value={newParticipantName}
+                  onChange={(e) => setNewParticipantName(e.target.value)}
+                  placeholder="Participant Name"
+                  className="col-span-3"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddParticipant}>Add Participant</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

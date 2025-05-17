@@ -45,18 +45,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         setIsLoading(true);
         const token = localStorage.getItem("token");
-        const userData = localStorage.getItem("user");
 
-        if (token && userData) {
-          // Validate token with backend in a real implementation
-          // For now, just parse and set the user data
-          setUser(JSON.parse(userData));
+        if (token) {
+          // Fetch user data from the API using the token
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (response.ok) {
+            const userData = await response.json();
+            setUser(userData.user);
+          } else {
+            // Token is invalid or expired
+            localStorage.removeItem("token");
+          }
         }
       } catch (err) {
         console.error("Auth check failed:", err);
-        // Clear potentially corrupted data
+        // Clear token on error
         localStorage.removeItem("token");
-        localStorage.removeItem("user");
       } finally {
         setIsLoading(false);
       }
@@ -70,13 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch("http://localhost:8000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, password }),
+        }
+      );
 
       const data = await response.json();
 
@@ -84,9 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(data.message || "Login failed");
       }
 
-      // Store token and user data
+      // Store only the token in localStorage
       localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
 
       // Update user state
       setUser(data.user);
@@ -125,10 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(data.message || "Signup failed");
       }
 
-      // Store token and user data
+      // Store only the token in localStorage
       localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
 
+      // Update user state directly from the response
       setUser(data.user);
 
       // Navigate to dashboard
@@ -142,9 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    // Clear local storage
+    // Clear token from localStorage
     localStorage.removeItem("token");
-    localStorage.removeItem("user");
 
     // Reset user state
     setUser(null);
