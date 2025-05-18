@@ -12,7 +12,10 @@ import {
   Users,
   BrainCircuit,
   Link as LinkIcon,
+  AlertCircle,
+  CheckCircle,
 } from "lucide-react";
+import AvailabilityChecker from "@/components/AvailabilityChecker";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -64,6 +67,9 @@ export default function NewAppointmentPage() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [googleAuth, setGoogleAuth] = useState<GoogleAuthResponse | null>(null);
   const [isCreatingMeet, setIsCreatingMeet] = useState(false);
+  const [hasConflicts, setHasConflicts] = useState(false);
+  const [conflictData, setConflictData] = useState<any[]>([]);
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
 
   // Initialize form with default values
   const form = useForm<AppointmentFormValues>({
@@ -129,207 +135,209 @@ export default function NewAppointmentPage() {
     google_meet_link?: string;
   }
 
+  // Handle availability check results
+  const handleAvailabilityChecked = (hasScheduleConflicts: boolean, conflicts: any[]) => {
+    setHasConflicts(hasScheduleConflicts);
+    setConflictData(conflicts);
+    setAvailabilityChecked(true);
+    
+    if (hasScheduleConflicts) {
+      console.log("Conflicts detected:", conflicts);
+    } else {
+      console.log("All participants are available!");
+    }
+  };
+
   const onSubmit = async (data: AppointmentFormValues) => {
     try {
       setIsSubmitting(true);
       const token = localStorage.getItem("token");
 
       if (!token) {
-        throw new Error("You're not authenticated. Please login again.");
+        alert("You must be logged in to create an appointment");
+        router.push("/login");
+        return;
+      }
+      
+      // If conflicts were detected, show a confirmation dialog
+      if (hasConflicts && availabilityChecked) {
+        const proceed = window.confirm(
+          "There are scheduling conflicts with some participants. Do you still want to proceed with creating this appointment?"
+        );
+        
+        if (!proceed) {
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       // Calculate end time based on duration
       const startDateTime = new Date(`${data.date}T${data.time}`);
-      const durationMinutes = parseInt(data.duration);
       const endDateTime = new Date(
-        startDateTime.getTime() + durationMinutes * 60000
+        startDateTime.getTime() + parseInt(data.duration) * 60 * 1000
       );
 
-      // Parse participants into an array of emails
-      const participants = data.participants
+      // Process participants into an array
+      const participantsArray = data.participants
         .split(",")
         .map((email) => email.trim())
         .filter((email) => email.length > 0);
 
-      const payload: AppointmentPayload = {
+      // Check if Google Meet link was generated
+      let meetingUrl = data.location || "";
+      if (googleAuth && data.location && data.location.includes("meet.google.com")) {
+        meetingUrl = data.location;
+      }
+
+      // Prepare the appointment payload
+      const appointmentPayload: AppointmentPayload = {
         title: data.title,
         description: data.description || "",
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
-        location: data.location || "",
-        participants: participants,
+        location: meetingUrl || "",
+        participants: participantsArray,
         status: "upcoming",
-        ...(user?.id && { user_id: user.id }),
-        ...(data.location?.includes("meet.google.com") && {
-          google_meet_link: data.location,
-        }),
       };
 
-      // Use the correct backend API endpoint from environment variables
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
-      const apiUrl = `${API_URL}/appointments`;
+      // Make API call to create appointment
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/appointments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-auth-token": token,
+          },
+          body: JSON.stringify(appointmentPayload),
+        }
+      );
 
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          "x-auth-token": token, // Include both formats for compatibility
-        },
-        body: JSON.stringify(payload),
-      });
-
-      // Check for non-ok response before parsing JSON to avoid parsing errors
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({
-          message: `Server error: ${response.status} ${response.statusText}`,
-        }));
-        throw new Error(
-          errorData.message || errorData.error || "Failed to create appointment"
-        );
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create appointment");
       }
 
-      const postData = await response.json();
+      // Redirect to the appointments page on success
       router.push("/appointments");
     } catch (error) {
       console.error("Error creating appointment:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error occurred";
-      alert(`Failed to create appointment: ${errorMessage}`);
+      alert("Failed to create appointment. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Get client ID from environment variables
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-
-  // Google login handler with Google's OAuth SDK
+  // Using Direct OAuth Flow
   const login = useGoogleLogin({
-    onSuccess: (tokenResponse) => {
-      // Store the token response in state
-      setGoogleAuth(tokenResponse);
-
-      // Also store in localStorage for persistence
-      if (tokenResponse.access_token) {
-        localStorage.setItem("googleAccessToken", tokenResponse.access_token);
-
-        // Calculate and store expiry time if available
-        if (tokenResponse.expires_in) {
-          const expiryTime = Date.now() + tokenResponse.expires_in * 1000;
-          localStorage.setItem("googleTokenExpiry", expiryTime.toString());
-        }
-      }
-
-      // If we were in the middle of creating a meet, continue the process
-      if (isCreatingMeet) {
-        createGoogleMeet(tokenResponse);
-      }
-    },
-    // Essential scopes for Calendar API
-    scope:
-      "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events",
-    flow: "implicit", // Using implicit flow with direct token return which uses a popup by default
-    onError: (error) => {
-      const errorMsg =
-        error.error_description || error.error || "Unknown error";
-      alert(`Google login failed: ${errorMsg}. Please try again.`);
-      setIsCreatingMeet(false);
-    },
+    onSuccess: onSuccess,
+    onError: onError,
+    scope: "https://www.googleapis.com/auth/calendar",
   });
+
+  function onSuccess(tokenResponse: any) {
+    console.log("Google login success", tokenResponse);
+
+    // Store the token in state
+    setGoogleAuth({
+      access_token: tokenResponse.access_token,
+      expires_in: tokenResponse.expires_in,
+    });
+
+    // If we already have a specific action in mind (creating Google Meet)
+    if (isCreatingMeet) {
+      createGoogleMeet({
+        access_token: tokenResponse.access_token,
+        expires_in: tokenResponse.expires_in,
+      });
+    }
+  }
+
+  // Using implicit flow with direct token return which uses a popup by default
+  function onError(error: any) {
+    console.log("Google login failed", error);
+    setIsCreatingMeet(false);
+    alert(
+      "Failed to connect with Google. Please check your permissions and try again."
+    );
+  }
 
   // Function to create a Google Meet using our API route
   const createGoogleMeet = async (authToken: GoogleAuthResponse) => {
     try {
-      // Show loading state
-      form.setValue("location", "Creating Google Meet...");
       setIsCreatingMeet(true);
 
-      // Get form values
-      const title = form.getValues("title") || "New Meeting";
+      // Get the appointment details from the form
+      const title = form.getValues("title");
+      const description = form.getValues("description") || "";
       const date = form.getValues("date");
-      const time = form.getValues("time") || "12:00";
-      const durationMinutes = parseInt(form.getValues("duration") || "30");
-      const participantsString = form.getValues("participants") || "";
+      const time = form.getValues("time");
+      const duration = parseInt(form.getValues("duration") || "30");
 
       if (!date || !time) {
-        throw new Error("Please enter a date and time for the meeting");
+        alert("Please select a date and time for the meeting.");
+        setIsCreatingMeet(false);
+        return;
       }
-
-      // Parse participants into an array of emails
-      const attendeeEmails = participantsString
-        ? participantsString
-            .split(",")
-            .map((email) => email.trim())
-            .filter((email) => email.length > 0)
-        : [];
 
       // Calculate start and end times
       const startDateTime = new Date(`${date}T${time}`);
       const endDateTime = new Date(
-        startDateTime.getTime() + durationMinutes * 60000
+        startDateTime.getTime() + duration * 60 * 1000
       );
 
-      // Get app's JWT authentication token
-      const token = localStorage.getItem("token");
+      // Format for Google Calendar API
+      const startTime = startDateTime.toISOString();
+      const endTime = endDateTime.toISOString();
 
-      const response = await fetch("/api/nylas/google-meet", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token || ""}`,
-        },
-        body: JSON.stringify({
-          title,
-          start_time: startDateTime.toISOString(),
-          end_time: endDateTime.toISOString(),
-          access_token: authToken.access_token,
-          participants: attendeeEmails,
-        }),
-      });
+      // Get participants emails (optional for Meet creation)
+      let attendees: { email: string }[] = [];
+      const participantsValue = form.getValues("participants");
+      if (participantsValue) {
+        attendees = participantsValue
+          .split(",")
+          .map((email) => email.trim())
+          .filter((email) => email.length > 0)
+          .map((email) => ({ email }));
+      }
+
+      // Create the meeting
+      // We'll use our backend API to create the meeting
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/meetings/create-google-meet`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken.access_token}`,
+          },
+          body: JSON.stringify({
+            title,
+            description,
+            startTime,
+            endTime,
+            attendees,
+          }),
+        }
+      );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        let errorData;
-
-        try {
-          errorData = JSON.parse(errorText);
-        } catch (e) {
-          // Response wasn't JSON
-          errorData = {
-            error: `Server error: ${response.status} ${response.statusText}`,
-          };
-        }
-
-        throw new Error(
-          errorData.error ||
-            errorData.message ||
-            `Server error: ${response.status}`
-        );
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create Google Meet");
       }
 
       const data = await response.json();
-
-      // Get the meet link from response - check both possible response formats
-      const meetLink = data.meetUrl || data.meetLink;
-
-      // Set the Google Meet link in the form
-      if (meetLink) {
-        form.setValue("location", meetLink);
-        return meetLink;
+      
+      // Set the Google Meet link in the location field
+      if (data.meetLink) {
+        form.setValue("location", data.meetLink);
+        alert("Google Meet link created successfully!");
       } else {
-        throw new Error("Response did not include a Google Meet link");
+        throw new Error("No meeting link returned from the API");
       }
     } catch (error) {
       console.error("Error creating Google Meet:", error);
-      form.setValue("location", "");
-
-      // Provide a more helpful error message
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error occurred";
-      alert(`Could not create Google Meet: ${errorMessage}. Please try again.`);
-      return null;
+      alert("Failed to create Google Meet. Please try again.");
     } finally {
       setIsCreatingMeet(false);
     }
@@ -337,296 +345,286 @@ export default function NewAppointmentPage() {
 
   // Check token validity helper function to avoid code duplication
   const isTokenValid = (tokenExpiry: string | null): boolean => {
-    return tokenExpiry ? parseInt(tokenExpiry) > Date.now() : false;
+    if (!tokenExpiry) return false;
+    return new Date(tokenExpiry) > new Date();
   };
 
-  // Load stored token on component mount
+  // Check if we have a valid Google token when component loads
   useEffect(() => {
-    const storedToken = localStorage.getItem("googleAccessToken");
-    const tokenExpiry = localStorage.getItem("googleTokenExpiry");
-    const validToken = storedToken && isTokenValid(tokenExpiry);
+    const checkGoogleAuth = async () => {
+      const storedToken = localStorage.getItem("google_auth_token");
+      const tokenExpiry = localStorage.getItem("google_auth_expiry");
 
-    if (validToken && !googleAuth) {
-      setGoogleAuth({ access_token: storedToken });
-    }
+      if (storedToken && isTokenValid(tokenExpiry)) {
+        setGoogleAuth({ access_token: storedToken });
+      }
+    };
+
+    checkGoogleAuth();
   }, []);
 
   // Generate a Google Meet link
-  const generateMeetLink = () => {
-    // Check for stored Google token and if it's still valid
-    const storedToken = localStorage.getItem("googleAccessToken");
-    const tokenExpiry = localStorage.getItem("googleTokenExpiry");
-    const validToken = storedToken && isTokenValid(tokenExpiry);
-
-    if (validToken && !googleAuth) {
-      // We have a valid token in localStorage but not in state
-      setGoogleAuth({ access_token: storedToken });
-    }
-
-    if (!googleAuth && !validToken) {
-      // No valid token available, start the Google login flow
-      setIsCreatingMeet(true);
-
-      // Make sure to check if CLIENT_ID is available
-      if (!clientId) {
-        alert(
-          "Google Client ID is not configured. Please contact the administrator."
-        );
-        setIsCreatingMeet(false);
-        return;
-      }
-
-      login();
-      return;
-    }
-
-    // We have authentication, create the Google Meet
+  const generateMeetLink = async () => {
+    // If we already have a valid Google auth token, use it
     if (googleAuth) {
-      createGoogleMeet(googleAuth);
-    } else if (validToken && storedToken) {
-      createGoogleMeet({ access_token: storedToken });
+      await createGoogleMeet(googleAuth);
+    } else {
+      // Otherwise, start the Google auth flow
+      setIsCreatingMeet(true);
+      login(); // This will trigger the Google OAuth popup
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">New Appointment</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Schedule a new appointment or meeting.
-        </p>
-      </div>
+    <div className="container mx-auto py-8 max-w-5xl">
+      <div className="flex flex-col md:flex-row gap-8">
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold mb-6">Create New Appointment</h1>
 
-      <div className="bg-white p-6 rounded-lg shadow">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Title</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Meeting title" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Enter a descriptive title for the appointment.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Appointment title" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input
+                            type="date"
+                            className="pl-10"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input
+                            type="time"
+                            className="pl-10"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="duration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Duration</FormLabel>
+                      <FormControl>
+                        <select
+                          className="w-full p-2 border rounded"
+                          {...field}
+                        >
+                          <option value="15">15 minutes</option>
+                          <option value="30">30 minutes</option>
+                          <option value="45">45 minutes</option>
+                          <option value="60">1 hour</option>
+                          <option value="90">1.5 hours</option>
+                          <option value="120">2 hours</option>
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="participants"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Participants</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input
+                            placeholder="Email addresses (comma separated)"
+                            className="pl-10"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        Add email addresses separated by commas.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Availability Checker */}
+              {form.watch("participants") && form.watch("date") && form.watch("time") && form.watch("duration") && (
+                <div className="border rounded-md p-4 bg-gray-50">
+                  <h3 className="text-sm font-medium mb-3">Check Participant Availability</h3>
+                  <AvailabilityChecker
+                    participantEmails={form.watch("participants")}
+                    startTime={new Date(`${form.watch("date")}T${form.watch("time")}`)}
+                    endTime={new Date(new Date(`${form.watch("date")}T${form.watch("time")}`).getTime() + parseInt(form.watch("duration")) * 60 * 1000)}
+                    onAvailabilityChecked={handleAvailabilityChecked}
+                  />
+                  
+                  {availabilityChecked && (
+                    <div className="mt-3 text-sm">
+                      {hasConflicts ? (
+                        <div className="flex items-center text-amber-600">
+                          <AlertCircle size={16} className="mr-2" />
+                          <span>Conflicts detected. You can still create the appointment if needed.</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center text-green-600">
+                          <CheckCircle size={16} className="mr-2" />
+                          <span>All participants are available at this time!</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
-            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex items-center gap-2 mb-4"
+                  onClick={suggestAvailableTimes}
+                  disabled={suggestionsLoading}
+                >
+                  <BrainCircuit className="h-4 w-4" />
+                  {suggestionsLoading
+                    ? "Finding available times..."
+                    : "Find available times"}
+                </Button>
+
+                {useSuggestions && suggestedTimes.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">
+                      Suggested times:
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {suggestedTimes.map((time) => (
+                        <button
+                          key={time}
+                          type="button"
+                          className={`px-3 py-1 text-sm rounded-full ${
+                            form.getValues("time") === time
+                              ? "bg-blue-500 text-white"
+                              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                          }`}
+                          onClick={() => selectSuggestedTime(time)}
+                        >
+                          {time}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <FormField
                 control={form.control}
-                name="date"
+                name="location"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Date</FormLabel>
+                    <FormLabel>Location (optional)</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input type="date" className="pl-10" {...field} />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="time"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Time</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input type="time" className="pl-10" {...field} />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="duration"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Duration (minutes)</FormLabel>
-                    <FormControl>
-                      <select
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        {...field}
-                      >
-                        <option value="15">15 minutes</option>
-                        <option value="30">30 minutes</option>
-                        <option value="45">45 minutes</option>
-                        <option value="60">1 hour</option>
-                        <option value="90">1.5 hours</option>
-                        <option value="120">2 hours</option>
-                      </select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="participants"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Participants</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
-                          placeholder="Email addresses, comma separated"
+                          placeholder="Meeting location or link"
                           className="pl-10"
                           {...field}
                         />
                       </div>
                     </FormControl>
-                    <FormDescription>
-                      Enter email addresses separated by commas.
-                    </FormDescription>
+                    <div className="mt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={generateMeetLink}
+                        disabled={isCreatingMeet}
+                      >
+                        {isCreatingMeet
+                          ? "Creating Meet..."
+                          : googleAuth
+                          ? "Generate Google Meet Link"
+                          : "Sign in with Google"}
+                      </Button>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
 
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                className="flex items-center gap-2 mb-4"
-                onClick={suggestAvailableTimes}
-                disabled={suggestionsLoading}
-              >
-                <BrainCircuit className="h-4 w-4" />
-                {suggestionsLoading
-                  ? "Finding available times..."
-                  : "Find available times"}
-              </Button>
-
-              {useSuggestions && suggestedTimes.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">
-                    Suggested times:
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {suggestedTimes.map((time) => (
-                      <button
-                        key={time}
-                        type="button"
-                        className={`px-3 py-1 text-sm rounded-full ${
-                          form.getValues("time") === time
-                            ? "bg-blue-500 text-white"
-                            : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                        }`}
-                        onClick={() => selectSuggestedTime(time)}
-                      >
-                        {time}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <FormField
-              control={form.control}
-              name="location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Location (optional)</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        placeholder="Meeting location or link"
-                        className="pl-10"
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (optional)</FormLabel>
+                    <FormControl>
+                      <textarea
+                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        placeholder="Add any additional details about the appointment"
                         {...field}
                       />
-                    </div>
-                  </FormControl>
-                  <div className="mt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={generateMeetLink}
-                      disabled={isCreatingMeet}
-                    >
-                      {isCreatingMeet
-                        ? "Creating Meet..."
-                        : googleAuth
-                        ? "Generate Google Meet Link"
-                        : "Sign in with Google"}
-                    </Button>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description (optional)</FormLabel>
-                  <FormControl>
-                    <textarea
-                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      placeholder="Add any additional details about the appointment"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="flex justify-end space-x-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push("/appointments")}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Appointment"}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </div>
-
-      <div className="bg-blue-50 rounded-lg shadow p-6">
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            <BrainCircuit className="h-6 w-6 text-blue-600" />
-          </div>
-          <div className="ml-3">
-            <h3 className="text-lg font-medium text-blue-800">
-              Smart Scheduling
-            </h3>
-            <p className="mt-2 text-sm text-blue-700">
-              MeetNing can analyze participants' calendars to suggest the best
-              meeting times based on availability. Simply enter the
-              participants' email addresses and click "Find available times".
-            </p>
-          </div>
+              <div className="flex justify-end space-x-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/appointments")}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Creating..." : "Create Appointment"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </div>
       </div>
     </div>

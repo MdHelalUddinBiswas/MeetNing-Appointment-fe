@@ -197,6 +197,74 @@ export default function AppointmentDetailsPage() {
     newStatus: "upcoming" | "completed" | "canceled"
   ) => {
     try {
+      if (newStatus === "completed") {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "x-auth-token": token || "",
+            },
+            body: JSON.stringify({
+              status: newStatus,
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to complete appointment");
+        }
+      }
+
+      if (newStatus === "canceled") {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "x-auth-token": token || "",
+            },
+            body: JSON.stringify({
+              status: newStatus,
+            }),
+          }
+        );
+        
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to cancel appointment");
+        }
+      }
+
+
+      if (newStatus === "upcoming") {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "x-auth-token": token || "",
+            },
+            body: JSON.stringify({
+              status: newStatus,
+            }),
+          }
+        );
+        
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to reschedule appointment");
+        }
+      }
       // In a real app, this would make an API call to update the appointment status
       await new Promise((resolve) => setTimeout(resolve, 500));
 

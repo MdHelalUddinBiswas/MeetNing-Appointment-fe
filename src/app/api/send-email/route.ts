@@ -5,10 +5,19 @@ import { NextResponse } from 'next/server';
 // Initialize Resend with your API key
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Audience ID to exclude from email notifications
+const EXCLUDED_AUDIENCE_ID = 'a2ed616b-38ea-40ac-b216-c6c169d03410';
+
 export async function POST(request: Request) {
   try {
     const { to, subject, appointmentTitle, startTime, location } = await request.json();
-console.log(to, subject, appointmentTitle, startTime, location);
+    console.log(to, subject, appointmentTitle, startTime, location);
+    
+    // Skip sending email if the recipient's email contains the excluded audience ID
+    if (to && to.includes(EXCLUDED_AUDIENCE_ID)) {
+      console.log('Skipping email for excluded audience ID:', EXCLUDED_AUDIENCE_ID);
+      return NextResponse.json({ success: true, skipped: true, message: 'Email skipped for excluded audience' });
+    }
     const data = await resend.emails.send({
       from: 'mdhelal6775@gmail.com', // Use a validated sender
       to: to,
