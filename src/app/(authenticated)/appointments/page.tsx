@@ -62,7 +62,6 @@ export default function AppointmentsPage() {
       try {
         const token = localStorage.getItem("token");
 
-        // Make API call to delete appointment
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/appointments/${_id}`,
           {
@@ -217,7 +216,9 @@ export default function AppointmentsPage() {
                       <div className="mt-2 flex items-center text-sm text-gray-500">
                         <Calendar className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
                         <span>
-                          {new Date(appointment.start_time).toLocaleDateString()}{" "}
+                          {new Date(
+                            appointment.start_time
+                          ).toLocaleDateString()}{" "}
                           |{" "}
                           {new Date(appointment.start_time).toLocaleTimeString(
                             [],
@@ -251,8 +252,8 @@ export default function AppointmentsPage() {
                         appointment.status === "upcoming"
                           ? "bg-green-100 text-green-800"
                           : appointment.status === "completed"
-                          ? "bg-gray-100 text-gray-800"
-                          : "bg-red-100 text-red-800"
+                            ? "bg-gray-100 text-gray-800"
+                            : "bg-red-100 text-red-800"
                       }`}
                     >
                       {(appointment.status || "upcoming")
@@ -282,8 +283,8 @@ export default function AppointmentsPage() {
               {searchQuery
                 ? "No appointments match your search criteria."
                 : activeFilter !== "all"
-                ? `You don't have any ${activeFilter} appointments.`
-                : "Get started by creating a new appointment."}
+                  ? `You don't have any ${activeFilter} appointments.`
+                  : "Get started by creating a new appointment."}
             </p>
             <div className="mt-6">
               <Link href="/appointments/new">
