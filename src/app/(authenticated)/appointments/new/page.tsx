@@ -256,6 +256,29 @@ export default function NewAppointmentPage() {
       try {
         console.log("Sending email notification to:", participantsArray);
 
+        // Create proper date and time objects for the email
+        const appointmentDate = new Date(data.date);
+        const [hours, minutes] = data.time.split(':').map(Number);
+        appointmentDate.setHours(hours, minutes, 0, 0);
+        
+        // Calculate end time based on duration
+        const endDate = new Date(appointmentDate);
+        const durationInMinutes = parseInt(data.duration, 10);
+        endDate.setMinutes(endDate.getMinutes() + durationInMinutes);
+        
+        // Format the date and time for display in email
+        const formattedDate = appointmentDate.toLocaleDateString(undefined, {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+        
+        const formattedTime = appointmentDate.toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        
         const emailResponse = await fetch("/api/send-email", {
           method: "POST",
           headers: {
@@ -265,11 +288,12 @@ export default function NewAppointmentPage() {
             to: participantsArray,
             subject: `You've been added to "${data.title}" appointment`,
             appointmentTitle: data.title,
-            startTime: data.time || "",
-            endTime: data.time || "",
+            startTime: appointmentDate.toISOString(),
+            endTime: endDate.toISOString(),
             location: meetingUrl || "Not specified", // Use the meeting URL which might contain Google Meet link
             description: data.description || "",
             addedAt: new Date().toISOString(), // Include the timestamp when participant was added
+            useNodemailer: true, // Flag to use Nodemailer instead of Resend
           }),
         });
 
