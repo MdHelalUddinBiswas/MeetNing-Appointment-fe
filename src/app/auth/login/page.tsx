@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, CheckCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,11 +34,27 @@ const formSchema = z.object({
 // Create a type for our form values
 type FormValues = z.infer<typeof formSchema>;
 
-export default function LoginPage() {
+// Client component that uses searchParams
+function LoginForm() {
   const { login, error: authError, isLoading: authLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  useEffect(() => {
+    // Check if user has been redirected after verification
+    const verified = searchParams.get("verified");
+    if (verified === "true") {
+      setSuccessMessage("Your email has been verified successfully! You can now sign in.");
+    }
+  }, [searchParams]);
 
+  // Rest of the component logic goes here
+
+  // Form handling
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -48,13 +65,15 @@ export default function LoginPage() {
 
   async function onSubmit(values: FormValues) {
     setError("");
+    setSuccessMessage("");
     try {
       await login(values.email, values.password);
     } catch (err: any) {
+      console.log('Login error:', err);
       setError(err.message);
     }
   }
-
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-md">
@@ -68,6 +87,13 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {successMessage && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm flex items-center">
+            <CheckCircle className="h-4 w-4 mr-2" />
+            {successMessage}
+          </div>
+        )}
+        
         {(error || authError) && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
             {error || authError}
@@ -181,5 +207,14 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

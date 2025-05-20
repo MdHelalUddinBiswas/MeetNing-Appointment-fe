@@ -28,12 +28,12 @@
     "lucide-react": "^0.508.0",
     "next": "15.3.2",
     "next-auth": "^4.24.11",
+    "nodemailer": "^6.10.1",
     "nylas": "^7.9.0",
     "react": "^19.0.0",
     "react-datepicker": "^8.3.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.56.3",
-    "resend": "^4.5.1",
     "tailwind-merge": "^3.2.0",
     "uuid": "^11.1.0",
     "zod": "^3.24.4"
@@ -41,6 +41,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^6.4.17",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",

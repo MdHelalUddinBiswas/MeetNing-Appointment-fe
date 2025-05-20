@@ -136,11 +136,14 @@ export default function NewAppointmentPage() {
   }
 
   // Handle availability check results
-  const handleAvailabilityChecked = (hasScheduleConflicts: boolean, conflicts: any[]) => {
+  const handleAvailabilityChecked = (
+    hasScheduleConflicts: boolean,
+    conflicts: any[]
+  ) => {
     setHasConflicts(hasScheduleConflicts);
     setConflictData(conflicts);
     setAvailabilityChecked(true);
-    
+
     if (hasScheduleConflicts) {
       console.log("Conflicts detected:", conflicts);
     } else {
@@ -158,13 +161,13 @@ export default function NewAppointmentPage() {
         router.push("/login");
         return;
       }
-      
+
       // If conflicts were detected, show a confirmation dialog
       if (hasConflicts && availabilityChecked) {
         const proceed = window.confirm(
           "There are scheduling conflicts with some participants. Do you still want to proceed with creating this appointment?"
         );
-        
+
         if (!proceed) {
           setIsSubmitting(false);
           return;
@@ -185,7 +188,11 @@ export default function NewAppointmentPage() {
 
       // Check if Google Meet link was generated
       let meetingUrl = data.location || "";
-      if (googleAuth && data.location && data.location.includes("meet.google.com")) {
+      if (
+        googleAuth &&
+        data.location &&
+        data.location.includes("meet.google.com")
+      ) {
         meetingUrl = data.location;
       }
 
@@ -213,9 +220,56 @@ export default function NewAppointmentPage() {
         }
       );
 
+      const responseData = await response.json();
+      console.log("Appointment creation response:", responseData);
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = responseData;
         throw new Error(errorData.message || "Failed to create appointment");
+      }
+
+      console.log("Appointment created successfully");
+
+      // Send email notification to participants via server-side API route
+      try {
+        console.log("Sending email notification to:", participantsArray);
+
+        const emailResponse = await fetch("/api/send-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: participantsArray,
+            subject: `You've been added to "${data.title}" appointment`,
+            appointmentTitle: data.title,
+            startTime: data.time || "",
+            endTime: data.time || "",
+            location: meetingUrl || "Not specified", // Use the meeting URL which might contain Google Meet link
+            description: data.description || "",
+            addedAt: new Date().toISOString(), // Include the timestamp when participant was added
+          }),
+        });
+
+        if (!emailResponse.ok) {
+          throw new Error(
+            `Email API returned status: ${emailResponse.status}`
+          );
+        }
+
+        const emailResult = await emailResponse.json();
+        console.log("Email API response:", emailResult);
+
+        if (emailResult.success) {
+          console.log("Email notification sent successfully");
+        } else if (emailResult.skipped) {
+          console.log("Email notification skipped:", emailResult.message);
+        } else {
+          console.error("Email sending failed:", emailResult.error);
+        }
+      } catch (emailError) {
+        console.error("Error sending email notification:", emailError);
+        // Don't throw here to avoid breaking the appointment creation flow
       }
 
       // Redirect to the appointments page on success
@@ -327,7 +381,7 @@ export default function NewAppointmentPage() {
       }
 
       const data = await response.json();
-      
+
       // Set the Google Meet link in the location field
       if (data.meetLink) {
         form.setValue("location", data.meetLink);
@@ -407,11 +461,7 @@ export default function NewAppointmentPage() {
                       <FormControl>
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            type="date"
-                            className="pl-10"
-                            {...field}
-                          />
+                          <Input type="date" className="pl-10" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -428,11 +478,7 @@ export default function NewAppointmentPage() {
                       <FormControl>
                         <div className="relative">
                           <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            type="time"
-                            className="pl-10"
-                            {...field}
-                          />
+                          <Input type="time" className="pl-10" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -490,33 +536,52 @@ export default function NewAppointmentPage() {
               </div>
 
               {/* Availability Checker */}
-              {form.watch("participants") && form.watch("date") && form.watch("time") && form.watch("duration") && (
-                <div className="border rounded-md p-4 bg-gray-50">
-                  <h3 className="text-sm font-medium mb-3">Check Participant Availability</h3>
-                  <AvailabilityChecker
-                    participantEmails={form.watch("participants")}
-                    startTime={new Date(`${form.watch("date")}T${form.watch("time")}`)}
-                    endTime={new Date(new Date(`${form.watch("date")}T${form.watch("time")}`).getTime() + parseInt(form.watch("duration")) * 60 * 1000)}
-                    onAvailabilityChecked={handleAvailabilityChecked}
-                  />
-                  
-                  {availabilityChecked && (
-                    <div className="mt-3 text-sm">
-                      {hasConflicts ? (
-                        <div className="flex items-center text-amber-600">
-                          <AlertCircle size={16} className="mr-2" />
-                          <span>Conflicts detected. You can still create the appointment if needed.</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center text-green-600">
-                          <CheckCircle size={16} className="mr-2" />
-                          <span>All participants are available at this time!</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+              {form.watch("participants") &&
+                form.watch("date") &&
+                form.watch("time") &&
+                form.watch("duration") && (
+                  <div className="border rounded-md p-4 bg-gray-50">
+                    <h3 className="text-sm font-medium mb-3">
+                      Check Participant Availability
+                    </h3>
+                    <AvailabilityChecker
+                      participantEmails={form.watch("participants")}
+                      startTime={
+                        new Date(`${form.watch("date")}T${form.watch("time")}`)
+                      }
+                      endTime={
+                        new Date(
+                          new Date(
+                            `${form.watch("date")}T${form.watch("time")}`
+                          ).getTime() +
+                            parseInt(form.watch("duration")) * 60 * 1000
+                        )
+                      }
+                      onAvailabilityChecked={handleAvailabilityChecked}
+                    />
+
+                    {availabilityChecked && (
+                      <div className="mt-3 text-sm">
+                        {hasConflicts ? (
+                          <div className="flex items-center text-amber-600">
+                            <AlertCircle size={16} className="mr-2" />
+                            <span>
+                              Conflicts detected. You can still create the
+                              appointment if needed.
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-green-600">
+                            <CheckCircle size={16} className="mr-2" />
+                            <span>
+                              All participants are available at this time!
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
               <div>
                 <Button
@@ -584,8 +649,8 @@ export default function NewAppointmentPage() {
                         {isCreatingMeet
                           ? "Creating Meet..."
                           : googleAuth
-                          ? "Generate Google Meet Link"
-                          : "Sign in with Google"}
+                            ? "Generate Google Meet Link"
+                            : "Sign in with Google"}
                       </Button>
                     </div>
                     <FormMessage />

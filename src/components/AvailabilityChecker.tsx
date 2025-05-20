@@ -61,7 +61,7 @@ export default function AvailabilityChecker({
       
       // Format the API URL with proper parameters - making sure to use the correct backend URL
       // Ensure this matches the route registered in the backend (api/conflicts/check)
-      const apiUrl = "http://localhost:8000/api/conflicts/check";
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/conflicts/check`;
       
       // Get token from localStorage
       const token = localStorage.getItem("token");

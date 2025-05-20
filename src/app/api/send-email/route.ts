@@ -1,41 +1,58 @@
 
-import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
-
-// Initialize Resend with your API key
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendAppointmentInvitation } from '@/lib/email-utils';
 
 // Audience ID to exclude from email notifications
 const EXCLUDED_AUDIENCE_ID = 'a2ed616b-38ea-40ac-b216-c6c169d03410';
 
 export async function POST(request: Request) {
   try {
-    const { to, subject, appointmentTitle, startTime, location } = await request.json();
-    console.log(to, subject, appointmentTitle, startTime, location);
+    const { to, subject, appointmentTitle, startTime, endTime, location, description, addedAt } = await request.json();
+    console.log('Email request:', { to, subject, appointmentTitle, startTime, location, addedAt });
     
     // Skip sending email if the recipient's email contains the excluded audience ID
     if (to && to.includes(EXCLUDED_AUDIENCE_ID)) {
       console.log('Skipping email for excluded audience ID:', EXCLUDED_AUDIENCE_ID);
       return NextResponse.json({ success: true, skipped: true, message: 'Email skipped for excluded audience' });
     }
-    const data = await resend.emails.send({
-      from: 'mdhelal6775@gmail.com', // Use a validated sender
-      to: to,
-      subject: subject,
-      html: `
-        <h1>You've been added to an appointment</h1>
-        <p>You have been added to the following appointment:</p>
-        <p><strong>Title:</strong> ${appointmentTitle}</p>
-        <p><strong>When:</strong> ${new Date(startTime).toLocaleString()}</p>
-        <p><strong>Location:</strong> ${location || 'Not specified'}</p>
-      `,
+    
+    // Use our new email utility to send the appointment invitation
+    const result = await sendAppointmentInvitation({
+      to,
+      subject,
+      appointmentTitle,
+      startTime,
+      endTime,
+      location,
+      description,
+      addedAt
     });
-
-    return NextResponse.json({ success: true, data });
+    
+    if (result.success) {
+      console.log('Email sent successfully');
+      return NextResponse.json({ success: true, data: result.data });
+    } else {
+      console.error('Failed to send email:', result.error);
+      return NextResponse.json({ success: false, error: result.error }, { status: 500 });
+    }
   } catch (error) {
     console.error('Email sending failed:', error);
+    
+    // Provide more detailed error information
+    let errorMessage = 'Failed to send email';
+    let errorDetails = {};
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorDetails = { name: error.name, stack: error.stack };
+    } else if (typeof error === 'object' && error !== null) {
+      errorDetails = error;
+    }
+    
+    console.error('Detailed error:', { message: errorMessage, details: errorDetails });
+    
     return NextResponse.json(
-      { error: 'Failed to send email' },
+      { error: errorMessage, details: errorDetails },
       { status: 500 }
     );
   }

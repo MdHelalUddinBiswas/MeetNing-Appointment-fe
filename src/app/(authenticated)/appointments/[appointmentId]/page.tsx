@@ -12,7 +12,6 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
-import { Resend } from "resend";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,11 +21,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/lib/auth-context";
+
 
 type Appointment = {
   id: string | number;
@@ -115,6 +113,7 @@ export default function AppointmentDetailsPage() {
       const newParticipant = {
         email: newParticipantEmail,
         name: newParticipantName || undefined,
+        added_at: new Date().toISOString(), // Add timestamp when participant is added
       };
 
       const currentParticipants = appointment?.participants || [];
@@ -142,6 +141,8 @@ export default function AppointmentDetailsPage() {
 
         // Send email notification via server-side API route
         try {
+          console.log("Sending email notification to:", newParticipantEmail);
+
           const emailResponse = await fetch("/api/send-email", {
             method: "POST",
             headers: {
@@ -152,41 +153,50 @@ export default function AppointmentDetailsPage() {
               subject: `You've been added to "${appointment?.title}" appointment`,
               appointmentTitle: appointment?.title,
               startTime: appointment?.start_time || "",
+              endTime: appointment?.end_time || "",
               location: appointment?.location || "Not specified",
+              description: appointment?.description || "",
+              addedAt: newParticipant.added_at, // Include the timestamp when participant was added
+              useNodemailer: true, // Flag to use Nodemailer instead of Resend
             }),
           });
 
+          if (!emailResponse.ok) {
+            throw new Error(
+              `Email API returned status: ${emailResponse.status}`
+            );
+          }
+
           const emailResult = await emailResponse.json();
+          console.log("Email API response:", emailResult);
+
           if (emailResult.success) {
             console.log("Email notification sent successfully");
+          } else if (emailResult.skipped) {
+            console.log("Email notification skipped:", emailResult.message);
           } else {
-            console.error(
-              "Failed to send email notification:",
-              emailResult.error
-            );
+            console.error("Email sending failed:", emailResult.error);
           }
         } catch (emailError) {
           console.error("Error sending email notification:", emailError);
           // Don't throw here to avoid breaking the participant addition flow
         }
-      }
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to add participant");
-      }
-
-      // Update the local appointment data with the new participant
-      if (appointment) {
+        // Update local state
         setAppointment({
-          ...appointment,
+          ...appointment!,
           participants: updatedParticipants,
         });
-      }
 
-      // Close dialog and reset fields
-      setDialogOpen(false);
-      setNewParticipantEmail("");
-      setNewParticipantName("");
+        // Close the dialog
+        setDialogOpen(false);
+
+        // Reset form
+        setNewParticipantEmail("");
+        setNewParticipantName("");
+      } else {
+        throw new Error(data.message || "Failed to add participant");
+      }
     } catch (error) {
       console.error("Error adding participant:", error);
       setError("Failed to add participant. Please try again.");
@@ -233,7 +243,6 @@ export default function AppointmentDetailsPage() {
             }),
           }
         );
-        
 
         const data = await response.json();
 
@@ -241,7 +250,6 @@ export default function AppointmentDetailsPage() {
           throw new Error(data.message || "Failed to cancel appointment");
         }
       }
-
 
       if (newStatus === "upcoming") {
         const response = await fetch(
@@ -257,7 +265,6 @@ export default function AppointmentDetailsPage() {
             }),
           }
         );
-        
 
         const data = await response.json();
 
