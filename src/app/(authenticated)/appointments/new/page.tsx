@@ -14,9 +14,18 @@ import {
   Link as LinkIcon,
   AlertCircle,
   CheckCircle,
+  Info,
 } from "lucide-react";
 import AvailabilityChecker from "@/components/AvailabilityChecker";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -71,6 +80,11 @@ export default function NewAppointmentPage() {
   const [conflictData, setConflictData] = useState<any[]>([]);
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
 
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogTitle, setDialogTitle] = useState("");
+  const [dialogMessage, setDialogMessage] = useState("");
+
   // Initialize form with default values
   const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentFormSchema),
@@ -90,10 +104,18 @@ export default function NewAppointmentPage() {
   const participants = form.watch("participants");
   const duration = form.watch("duration");
 
+  // Show dialog helper function
+  const showDialog = (title: string, message: string) => {
+    setDialogTitle(title);
+    setDialogMessage(message);
+    setDialogOpen(true);
+  };
+
   // Function to suggest available times based on participants' calendars
   const suggestAvailableTimes = async () => {
     if (!date || !participants || !duration) {
-      alert(
+      showDialog(
+        "Missing Information",
         "Please enter a date, participants, and duration to get suggested times."
       );
       return;
@@ -111,7 +133,7 @@ export default function NewAppointmentPage() {
       setUseSuggestions(true);
     } catch (error) {
       console.error("Error fetching suggested times:", error);
-      alert("Could not fetch suggested times. Please try again.");
+      showDialog("Error", "Could not fetch suggested times. Please try again.");
     } finally {
       setSuggestionsLoading(false);
     }
@@ -252,9 +274,7 @@ export default function NewAppointmentPage() {
         });
 
         if (!emailResponse.ok) {
-          throw new Error(
-            `Email API returned status: ${emailResponse.status}`
-          );
+          throw new Error(`Email API returned status: ${emailResponse.status}`);
         }
 
         const emailResult = await emailResponse.json();
@@ -272,7 +292,6 @@ export default function NewAppointmentPage() {
         // Don't throw here to avoid breaking the appointment creation flow
       }
 
-      // Redirect to the appointments page on success
       router.push("/appointments");
     } catch (error) {
       console.error("Error creating appointment:", error);
@@ -640,6 +659,7 @@ export default function NewAppointmentPage() {
                     </FormControl>
                     <div className="mt-2">
                       <Button
+                        className="hidden"
                         type="button"
                         variant="outline"
                         size="sm"
@@ -649,8 +669,8 @@ export default function NewAppointmentPage() {
                         {isCreatingMeet
                           ? "Creating Meet..."
                           : googleAuth
-                            ? "Generate Google Meet Link"
-                            : "Sign in with Google"}
+                          ? "Generate Google Meet Link"
+                          : "Sign in with Google"}
                       </Button>
                     </div>
                     <FormMessage />
@@ -692,6 +712,21 @@ export default function NewAppointmentPage() {
           </Form>
         </div>
       </div>
+      {/* Dialog for notifications and alerts */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5 text-blue-500" />
+              {dialogTitle}
+            </DialogTitle>
+            <DialogDescription>{dialogMessage}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setDialogOpen(false)}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

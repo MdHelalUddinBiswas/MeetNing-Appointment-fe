@@ -9,7 +9,6 @@ export interface Appointment {
   location?: string;
   participants: string[];
   status?: "upcoming" | "completed" | "canceled";
-  // Add other API fields
   created_at?: string;
   user_id?: string;
 }
@@ -55,14 +54,17 @@ const useAppointments = () => {
     }
   };
 
-  // Function to filter appointments based on search query
-  const filterAppointments = (query: string) => {
+  // Function to filter appointments based on search query and/or pre-filtered data
+  const filterAppointments = (query: string, preFilteredData?: Appointment[]) => {
+    // Use either the provided filtered data or all appointments
+    const sourceData = preFilteredData || appointments;
+    
     if (!query.trim()) {
-      setFilteredAppointments(appointments);
+      setFilteredAppointments(sourceData);
       return;
     }
     
-    const filtered = appointments.filter((appointment) => {
+    const filtered = sourceData.filter((appointment) => {
       const searchableText = [
         appointment.title,
         appointment.description,
@@ -87,7 +89,7 @@ const useAppointments = () => {
     isLoading,
     error,
     fetchAppointments,
-    filterAppointments,
+    filterAppointments: filterAppointments as (query: string, preFilteredData?: Appointment[]) => void,
   };
 };
 

@@ -52,32 +52,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         setIsLoading(true);
         const token = localStorage.getItem("token");
+        const googleToken = localStorage.getItem("googleAccessToken");
 
-        if (token) {
-          // Fetch user data from the API using the token
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
-            {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
+        // If we have any token, consider the user potentially logged in
+        if (token || googleToken) {
+          try {
+            // Fetch user data from the API using the token
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+
+            if (response.ok) {
+              const userData = await response.json();
+              setUser(userData.user);
+            } else if (response.status === 401) {
+              // Only clear token if specifically unauthorized (401)
+              console.log("Auth token expired or invalid");
+              localStorage.removeItem("token");
+              // Don't automatically redirect - let the protected route handle it
+            } else {
+              // Some other server error - don't clear token, might be temporary
+              console.error(
+                "Server error during auth check, status:",
+                response.status
+              );
+              // Still keep user logged in based on token presence
+              setUser({ id: "cached", email: "cached" } as User); // Use minimal user object
             }
-          );
-
-          if (response.ok) {
-            const userData = await response.json();
-            setUser(userData.user);
-          } else {
-            // Token is invalid or expired
-            localStorage.removeItem("token");
+          } catch (err) {
+            console.error("Auth check network error:", err);
+            // Don't clear token on network errors, might be temporary
+            // Still keep user logged in based on token presence
+            setUser({ id: "cached", email: "cached" } as User); // Use minimal user object
           }
         }
       } catch (err) {
-        console.error("Auth check failed:", err);
-        // Clear token on error
-        localStorage.removeItem("token");
+        console.error("Auth check critical error:", err);
       } finally {
         setIsLoading(false);
       }
@@ -121,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err: any) {
       console.log("Login error caught:", err);
       // Set error message for any login error
-      setError(err.message || "Login failed");                                                                                                              
+      setError(err.message || "Login failed");
       throw err;
     } finally {
       setIsLoading(false);
@@ -285,11 +302,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Implement Google login initialization
   };
 
+  // Make sure hasToken is a boolean by using !! to convert any string or null to a boolean
+  const hasToken = !!(
+    typeof window !== "undefined" &&
+    (localStorage.getItem("token") || localStorage.getItem("googleAccessToken"))
+  );
+
   const value = {
     user,
     setUser,
     isLoading,
-    isAuthenticated: !!user,
+    // Consider authenticated if user exists OR there's a token and still loading
+    // The !! ensures this is always a boolean
+    isAuthenticated: !!user || (hasToken && isLoading),
     error,
     login,
     signup,

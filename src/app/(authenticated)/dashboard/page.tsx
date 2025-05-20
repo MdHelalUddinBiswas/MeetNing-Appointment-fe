@@ -171,14 +171,6 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          <div className="mt-4">
-            <Link
-              href="/appointments"
-              className="text-sm font-medium text-blue-600 hover:text-blue-800"
-            >
-              View all appointments u2192
-            </Link>
-          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
@@ -197,14 +189,6 @@ export default function DashboardPage() {
                 )}
               </p>
             </div>
-          </div>
-          <div className="mt-4">
-            <Link
-              href="/contacts"
-              className="text-sm font-medium text-green-600 hover:text-green-800"
-            >
-              Manage contacts u2192
-            </Link>
           </div>
         </div>
 
@@ -225,14 +209,6 @@ export default function DashboardPage() {
                 hrs
               </p>
             </div>
-          </div>
-          <div className="mt-4">
-            <Link
-              href="/analytics"
-              className="text-sm font-medium text-purple-600 hover:text-purple-800"
-            >
-              View analytics u2192
-            </Link>
           </div>
         </div>
       </div>

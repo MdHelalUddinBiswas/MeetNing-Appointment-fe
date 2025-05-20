@@ -13,14 +13,24 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
-
-// Import the custom hook and Appointment interface
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import useAppointments, { Appointment } from "../../hooks/Appointment";
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(
+    null
+  );
 
   // Use the custom hook to handle appointment data fetching
   const {
@@ -32,56 +42,56 @@ export default function AppointmentsPage() {
     filterAppointments,
   } = useAppointments();
 
-  // Apply search filter whenever search query changes
   useEffect(() => {
     filterAppointments(searchQuery);
   }, [searchQuery]);
 
-  // Filter appointments based on status and search query
-  // Apply status filter when it changes
   useEffect(() => {
-    if (activeFilter === "all") {
-      // Just apply the search filter
-      filterAppointments(searchQuery);
-      return;
+    // First filter by status if needed
+    let statusFiltered = appointments;
+    if (activeFilter !== "all") {
+      statusFiltered = appointments.filter(
+        (appointment) => appointment.status === activeFilter
+      );
     }
+    
+    // Then apply search filter on the status-filtered results
+    filterAppointments(searchQuery, statusFiltered);
+  }, [activeFilter, appointments, searchQuery]);
 
-    // Filter by both search and status
-    const filtered = appointments.filter(
-      (appointment) => appointment.status === activeFilter
-    );
-
-    // Update the filtered list directly
-    // This works because our search filter is handled separately
-    filterAppointments(searchQuery);
-  }, [activeFilter, appointments]);
+  // Function to open delete confirmation dialog
+  const openDeleteDialog = (id: string) => {
+    setAppointmentToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
 
   // Delete appointment
-  const deleteAppointment = async (_id: string) => {
-    if (window.confirm("Are you sure you want to delete this appointment?")) {
-      try {
-        const token = localStorage.getItem("token");
+  const deleteAppointment = async () => {
+    if (!appointmentToDelete) return;
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${_id}`,
-          {
-            method: "DELETE",
-            headers: {
-              "x-auth-token": token || "",
-            },
-          }
-        );
+    try {
+      const token = localStorage.getItem("token");
 
-        if (!response.ok) {
-          throw new Error("Failed to delete appointment");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentToDelete}`,
+        {
+          method: "DELETE",
+          headers: {
+            "x-auth-token": token || "",
+          },
         }
+      );
 
-        // Refresh appointments after deletion
-        fetchAppointments();
-      } catch (error) {
-        console.error("Error deleting appointment:", error);
-        alert("Failed to delete appointment");
+      if (!response.ok) {
+        throw new Error("Failed to delete appointment");
       }
+
+      // Close dialog and refresh appointments after deletion
+      setIsDeleteDialogOpen(false);
+      fetchAppointments();
+    } catch (error) {
+      console.error("Error deleting appointment:", error);
+      alert("Failed to delete appointment");
     }
   };
 
@@ -252,8 +262,8 @@ export default function AppointmentsPage() {
                         appointment.status === "upcoming"
                           ? "bg-green-100 text-green-800"
                           : appointment.status === "completed"
-                            ? "bg-gray-100 text-gray-800"
-                            : "bg-red-100 text-red-800"
+                          ? "bg-gray-100 text-gray-800"
+                          : "bg-red-100 text-red-800"
                       }`}
                     >
                       {(appointment.status || "upcoming")
@@ -263,7 +273,7 @@ export default function AppointmentsPage() {
                     </span>
                     <button
                       className="text-red-500 hover:text-red-700"
-                      onClick={() => deleteAppointment(appointment.id)}
+                      onClick={() => openDeleteDialog(appointment.id)}
                       aria-label="Delete appointment"
                     >
                       <Trash2 className="h-5 w-5" />
@@ -283,8 +293,8 @@ export default function AppointmentsPage() {
               {searchQuery
                 ? "No appointments match your search criteria."
                 : activeFilter !== "all"
-                  ? `You don't have any ${activeFilter} appointments.`
-                  : "Get started by creating a new appointment."}
+                ? `You don't have any ${activeFilter} appointments.`
+                : "Get started by creating a new appointment."}
             </p>
             <div className="mt-6">
               <Link href="/appointments/new">
@@ -297,6 +307,29 @@ export default function AppointmentsPage() {
           </div>
         )}
       </div>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this appointment? This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={deleteAppointment}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -14,8 +14,17 @@ export default function AuthenticatedLayout({
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to login if not authenticated and not loading
-    if (!isLoading && !isAuthenticated) {
+    // Only redirect if explicitly not authenticated AND not loading
+    // This prevents redirect loops during page refreshes
+    if (
+      !isLoading &&
+      !isAuthenticated &&
+      typeof window !== "undefined" &&
+      !localStorage.getItem("token") &&
+      !localStorage.getItem("googleAccessToken")
+    ) {
+      // Double-check tokens as fallback before redirecting
+      console.log("No auth tokens found, redirecting to login");
       router.push("/auth/login");
     }
   }, [isLoading, isAuthenticated, router]);
@@ -50,21 +59,29 @@ export default function AuthenticatedLayout({
     );
   }
 
-  // Don't render anything if not authenticated
-  if (!isAuthenticated) {
+  // Check for tokens directly as a fallback
+  const hasToken =
+    typeof window !== "undefined" && localStorage.getItem("token");
+
+  // Only hide content if definitely not authenticated (no user AND no tokens)
+  if (!hasToken) {
+    router.push("/auth/login");
     return null;
   }
 
   return (
-    <div className="h-screen bg-gray-100">
+    <div className="h-screen flex flex-col overflow-hidden">
       <Navbar />
-      
-      {/* Content area */}
-      <div className="md:pl-64 flex flex-col flex-1">
-        <main className="flex-1">
+
+      {/* Content area - fixed sidebar width with scrollable content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar space */}
+        <div className="hidden md:block md:w-64 flex-shrink-0"></div>
+        
+        {/* Main content - scrollable */}
+        <main className="flex-1 overflow-y-auto bg-gray-50">
           <div className="py-6">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
-              {/* Main content */}
               <div className="py-4">{children}</div>
             </div>
           </div>

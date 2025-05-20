@@ -25,7 +25,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-
 type Appointment = {
   id: string | number;
   title: string;
@@ -382,8 +381,8 @@ export default function AppointmentDetailsPage() {
                 appointment.status === "upcoming"
                   ? "bg-green-100 text-green-800"
                   : appointment.status === "completed"
-                    ? "bg-gray-100 text-gray-800"
-                    : "bg-red-100 text-red-800"
+                  ? "bg-gray-100 text-gray-800"
+                  : "bg-red-100 text-red-800"
               }`}
             >
               {appointment.status.charAt(0).toUpperCase() +
@@ -569,54 +568,56 @@ export default function AppointmentDetailsPage() {
         <Link href="/appointments">
           <Button variant="outline">Back to Appointments</Button>
         </Link>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>Add Participant</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Participant</DialogTitle>
-              <DialogDescription>
-                Add a new participant to this appointment. They will receive
-                notification about the meeting details.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newParticipantEmail}
-                  onChange={(e) => setNewParticipantEmail(e.target.value)}
-                  placeholder="participant@example.com"
-                  className="col-span-3"
-                  required
-                />
+        <div className="flex gap-2">
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>Add Participant</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New Participant</DialogTitle>
+                <DialogDescription>
+                  Add a new participant to this appointment. They will receive
+                  notification about the meeting details.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="email" className="text-right">
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newParticipantEmail}
+                    onChange={(e) => setNewParticipantEmail(e.target.value)}
+                    placeholder="participant@example.com"
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Name (Optional)
+                  </Label>
+                  <Input
+                    id="name"
+                    value={newParticipantName}
+                    onChange={(e) => setNewParticipantName(e.target.value)}
+                    placeholder="Participant Name"
+                    className="col-span-3"
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name (Optional)
-                </Label>
-                <Input
-                  id="name"
-                  value={newParticipantName}
-                  onChange={(e) => setNewParticipantName(e.target.value)}
-                  placeholder="Participant Name"
-                  className="col-span-3"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddParticipant}>Add Participant</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddParticipant}>Add Participant</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </div>
   );
