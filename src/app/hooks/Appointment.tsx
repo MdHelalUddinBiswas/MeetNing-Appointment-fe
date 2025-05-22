@@ -7,6 +7,7 @@ export interface Appointment {
   end_time: string;    // Changed to match API's snake_case
   description?: string;
   location?: string;
+  role?: string;
   participants: string[];
   status?: "upcoming" | "completed" | "canceled";
   created_at?: string;

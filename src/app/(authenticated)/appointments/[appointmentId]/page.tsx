@@ -34,6 +34,7 @@ type Appointment = {
   email: string;
   participantsJson: string;
   location: string;
+  role: string;
   description: string;
   status: "upcoming" | "completed" | "canceled" | "pending";
   created_at?: string;
@@ -393,46 +394,48 @@ export default function AppointmentDetailsPage() {
             {appointment?.description}
           </p>
         </div>
-        <div className="flex space-x-3">
-          {appointment.status === "upcoming" && (
-            <>
-              <Link href={`/appointments/${appointmentId}/edit`}>
-                <Button variant="outline" className="flex items-center gap-2">
-                  <Edit className="h-4 w-4" />
-                  Edit
+        {appointment.role === "owner" && (
+          <div className="flex space-x-3">
+            {appointment.status === "upcoming" && (
+              <>
+                <Link href={`/appointments/${appointmentId}/edit`}>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Edit className="h-4 w-4" />
+                    Edit
+                  </Button>
+                </Link>
+                <Button
+                  variant="destructive"
+                  className="flex items-center gap-2"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Cancel
                 </Button>
-              </Link>
+              </>
+            )}
+            {appointment.status === "canceled" && (
               <Button
-                variant="destructive"
+                variant="outline"
                 className="flex items-center gap-2"
-                onClick={() => setDeleteConfirmOpen(true)}
+                onClick={() => handleStatusChange("upcoming")}
               >
-                <Trash2 className="h-4 w-4" />
-                Cancel
+                <Calendar className="h-4 w-4" />
+                Reschedule
               </Button>
-            </>
-          )}
-          {appointment.status === "canceled" && (
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={() => handleStatusChange("upcoming")}
-            >
-              <Calendar className="h-4 w-4" />
-              Reschedule
-            </Button>
-          )}
-          {appointment.status === "upcoming" && (
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={() => handleStatusChange("completed")}
-            >
-              <Clock className="h-4 w-4" />
-              Mark as Completed
-            </Button>
-          )}
-        </div>
+            )}
+            {appointment.status === "upcoming" && (
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => handleStatusChange("completed")}
+              >
+                <Clock className="h-4 w-4" />
+                Mark as Completed
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {deleteConfirmOpen && (

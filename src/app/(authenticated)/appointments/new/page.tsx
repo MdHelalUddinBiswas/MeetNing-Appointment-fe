@@ -153,6 +153,7 @@ export default function NewAppointmentPage() {
     location: string;
     participants: string[];
     status: string;
+    timezone?: string;
     user_id?: string | number;
     google_meet_link?: string;
   }
@@ -219,15 +220,21 @@ export default function NewAppointmentPage() {
       }
 
       // Prepare the appointment payload
+      // Get user's local timezone
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      // Prepare appointment data
       const appointmentPayload: AppointmentPayload = {
         title: data.title,
         description: data.description || "",
-        start_time: startDateTime.toISOString(),
+        start_time: `${data.date}T${data.time}:00`,
         end_time: endDateTime.toISOString(),
         location: meetingUrl || "",
         participants: participantsArray,
         status: "upcoming",
+        timezone: userTimezone, // Include user's timezone
       };
+      console.log("Appointment payload:", appointmentPayload);
 
       // Make API call to create appointment
       const response = await fetch(
@@ -273,11 +280,7 @@ export default function NewAppointmentPage() {
           month: "long",
           day: "numeric",
         });
-        
-        const formattedTime = appointmentDate.toLocaleTimeString(undefined, {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+      
         
         const emailResponse = await fetch("/api/send-email", {
           method: "POST",

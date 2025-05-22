@@ -54,7 +54,7 @@ export default function AppointmentsPage() {
         (appointment) => appointment.status === activeFilter
       );
     }
-    
+
     // Then apply search filter on the status-filtered results
     filterAppointments(searchQuery, statusFiltered);
   }, [activeFilter, appointments, searchQuery]);
@@ -94,6 +94,8 @@ export default function AppointmentsPage() {
       alert("Failed to delete appointment");
     }
   };
+
+  console.log(filteredAppointments);
 
   if (isLoading) {
     return (
@@ -232,7 +234,10 @@ export default function AppointmentsPage() {
                           |{" "}
                           {new Date(appointment.start_time).toLocaleTimeString(
                             [],
-                            { hour: "2-digit", minute: "2-digit" }
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
                           )}
                         </span>
                         <Clock className="flex-shrink-0 mx-1.5 h-4 w-4 text-gray-400" />
@@ -271,13 +276,16 @@ export default function AppointmentsPage() {
                         .toUpperCase() +
                         (appointment.status || "upcoming").slice(1)}
                     </span>
-                    <button
-                      className="text-red-500 hover:text-red-700"
-                      onClick={() => openDeleteDialog(appointment.id)}
-                      aria-label="Delete appointment"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
+
+                    {appointment?.role === "owner" && (
+                      <button
+                        className="text-red-500 hover:text-red-700"
+                        onClick={() => openDeleteDialog(appointment.id)}
+                        aria-label="Delete appointment"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </li>

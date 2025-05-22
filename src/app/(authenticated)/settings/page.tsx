@@ -18,6 +18,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
 import { GoogleIntegration } from "@/components/integrations/GoogleIntegration";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const profileFormSchema = z.object({
   name: z.string().min(2, {
@@ -64,10 +73,19 @@ export default function SettingsPage() {
     setSaveSuccess(false);
 
     try {
-      // Would send a request to update user profile in a real implementation
-      // await updateUserProfile(data);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/update-profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(data),
+      });
       
-      // Simulate API call
+      if (!response.ok) {
+        throw new Error("Failed to update profile");
+      }
+      
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       setSaveSuccess(true);
@@ -88,6 +106,32 @@ export default function SettingsPage() {
     } else {
       window.alert(`This would connect to ${provider} in a real implementation`);
       // In a real app: call service.connect(provider) and handle OAuth flow
+    }
+  };
+
+ const handleDeleteAccount = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ userId: user?.id }),
+      });
+      
+      if (response.ok) {
+        // Clear token from localStorage
+        localStorage.removeItem('token');
+        localStorage.removeItem('googleAccessToken');
+        
+        // Redirect to login page
+        window.location.href = '/auth/login';
+      } else {
+        console.error('Failed to delete account, server responded with:', response.status);
+      }
+    } catch (error) {
+      console.error('Failed to delete account:', error);
     }
   };
 
@@ -222,7 +266,7 @@ export default function SettingsPage() {
       )}
 
       {/* Calendar Connections Tab */}
-      {activeTab === "calendars" && (
+      {/* {activeTab === "calendars" && (
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-lg font-medium text-gray-900">Calendar Connections</h2>
           <p className="mt-1 text-sm text-gray-600">
@@ -248,22 +292,20 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
-
-            {/* If we had connected calendars, we would show them here */}
             {calendarAccounts.length > 0 && (
               <div className="mt-8">
                 <h3 className="text-md font-medium text-gray-900">Connected Accounts</h3>
                 <ul className="mt-3 divide-y divide-gray-200">
-                  {/* Map through connected accounts */}
+             
                 </ul>
               </div>
             )}
           </div>
         </div>
-      )}
+      )} */}
       
       {/* Integrations Tab */}
-      {activeTab === "integrations" && (
+      {/* {activeTab === "integrations" && (
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-lg font-medium text-gray-900">Integrations</h2>
           <p className="mt-1 text-sm text-gray-600">
@@ -291,7 +333,7 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Notifications Tab */}
       {activeTab === "notifications" && (
@@ -379,14 +421,32 @@ export default function SettingsPage() {
           Permanently delete your account and all associated data.
         </p>
         <div className="mt-4">
-          <Button
-            variant="destructive"
-            className="flex items-center gap-2"
-            onClick={() => window.alert("This would delete your account in a real implementation")}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete Account
-          </Button>
+          <Dialog>
+            <DialogTrigger>
+              <Button variant="destructive" className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4" />
+                Delete Account
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Are you absolutely sure?</DialogTitle>
+              </DialogHeader>
+              <DialogDescription>
+                This action cannot be undone. This will permanently delete your
+                account and remove your data from our servers.
+              </DialogDescription>
+              <DialogFooter>
+                <DialogTrigger asChild>
+                  <Button className="hover:cursor-pointer">Cancel</Button>
+                </DialogTrigger>
+
+                <DialogTrigger asChild>
+                  <Button className="hover:cursor-pointer" onClick={handleDeleteAccount} variant="destructive">Delete Account</Button>
+                </DialogTrigger>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>
