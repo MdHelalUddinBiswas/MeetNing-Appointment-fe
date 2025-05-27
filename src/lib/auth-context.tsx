@@ -33,6 +33,7 @@ interface AuthContextType {
   ) => Promise<void>;
   verifyOtp: (email: string, otp: string) => Promise<void>;
   resendOtp: (email: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
   logout: () => void;
   updateUser: (updatedUser: Partial<User>) => Promise<void>;
   initGoogleLogin: () => void;
@@ -251,6 +252,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const forgotPassword = async (email: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to process password reset request");
+      }
+
+      return data;
+    } catch (err: any) {
+      setError(err.message || "Failed to process password reset request");
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     // Clear token from localStorage
     localStorage.removeItem("token");
@@ -317,6 +349,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signup,
     verifyOtp,
     resendOtp,
+    forgotPassword,
     logout,
     updateUser,
     initGoogleLogin,

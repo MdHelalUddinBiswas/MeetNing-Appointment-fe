@@ -137,7 +137,7 @@ export default function AppointmentDetailsPage() {
       const updatedParticipants = [...currentParticipants, newParticipant];
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}/participants`,
+        `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}/participants`,
         {
           method: "POST",
           headers: {
