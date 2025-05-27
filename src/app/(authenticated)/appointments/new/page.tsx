@@ -129,8 +129,8 @@ export default function NewAppointmentPage() {
 
       // Placeholder times - to be replaced with actual available times from API
       const times = ["09:00", "11:30", "14:00", "16:30"];
-      setSuggestedTimes(times);
-      setUseSuggestions(true);
+        setSuggestedTimes(times);
+        setUseSuggestions(true);
     } catch (error) {
       console.error("Error fetching suggested times:", error);
       showDialog("Error", "Could not fetch suggested times. Please try again.");
@@ -635,20 +635,20 @@ export default function NewAppointmentPage() {
 
                     {availabilityChecked && (
                       <div className="mt-3 text-sm">
-                        {hasConflicts ? (
-                          <div className="flex items-center text-amber-600">
-                            <AlertCircle size={16} className="mr-2" />
-                            <span>
-                              Conflicts detected. You can still create the
-                              appointment if needed.
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center text-green-600">
-                            <CheckCircle size={16} className="mr-2" />
-                            <span>
-                              All participants are available at this time!
-                            </span>
+                          {hasConflicts ? (
+                            <div className="flex items-center text-amber-600">
+                              <AlertCircle size={16} className="mr-2" />
+                              <span>
+                                Conflicts detected. You can still create the
+                                appointment if needed.
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center text-green-600">
+                              <CheckCircle size={16} className="mr-2" />
+                              <span>
+                                All participants are available at this time!
+                              </span>
                           </div>
                         )}
                       </div>

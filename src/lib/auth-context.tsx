@@ -48,17 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in on initial load
     const checkAuth = async () => {
       try {
         setIsLoading(true);
         const token = localStorage.getItem("token");
         const googleToken = localStorage.getItem("googleAccessToken");
 
-        // If we have any token, consider the user potentially logged in
         if (token || googleToken) {
           try {
-            // Fetch user data from the API using the token
             const response = await fetch(
               `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
               {
@@ -82,14 +79,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 "Server error during auth check, status:",
                 response.status
               );
-              // Still keep user logged in based on token presence
-              setUser({ id: "cached", email: "cached" } as User); // Use minimal user object
+
+              setUser({ id: "cached", email: "cached" } as User);
             }
           } catch (err) {
             console.error("Auth check network error:", err);
-            // Don't clear token on network errors, might be temporary
-            // Still keep user logged in based on token presence
-            setUser({ id: "cached", email: "cached" } as User); // Use minimal user object
+
+            setUser({ id: "cached", email: "cached" } as User);
           }
         }
       } catch (err) {
@@ -143,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   };
-  console.log("User logged in successfully", user);
+
   const signup = async (
     name: string,
     email: string,
@@ -271,7 +267,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to process password reset request");
+        throw new Error(
+          data.message || "Failed to process password reset request"
+        );
       }
 
       return data;
@@ -331,7 +329,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Implement Google login initialization
   };
 
-  // Make sure hasToken is a boolean by using !! to convert any string or null to a boolean
   const hasToken = !!(
     typeof window !== "undefined" &&
     (localStorage.getItem("token") || localStorage.getItem("googleAccessToken"))
@@ -341,8 +338,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     setUser,
     isLoading,
-    // Consider authenticated if user exists OR there's a token and still loading
-    // The !! ensures this is always a boolean
     isAuthenticated: !!user || (hasToken && isLoading),
     error,
     login,
@@ -363,9 +358,6 @@ export function useAuth() {
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
-
-  // Make sure we're exposing the loading state with the correct property name
-  // Some components expect 'loading' but context uses 'isLoading'
   return {
     ...context,
     loading: context.isLoading,

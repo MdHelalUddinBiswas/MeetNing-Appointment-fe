@@ -4,6 +4,12 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { useAuth } from "@/lib/auth-context";
+import dynamic from "next/dynamic";
+
+// Dynamically import ChatWidget with no SSR to avoid hydration issues
+const ChatWidget = dynamic(() => import('@/components/ChatWidget'), {
+  ssr: false,
+});
 
 export default function AuthenticatedLayout({
   children,
@@ -87,6 +93,9 @@ export default function AuthenticatedLayout({
           </div>
         </main>
       </div>
+      
+      {/* Chat Widget */}
+      <ChatWidget />
     </div>
   );
 }
