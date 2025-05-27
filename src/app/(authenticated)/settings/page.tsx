@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Calendar, User, Bell, Save, Trash2, Link as LinkIcon, Video } from "lucide-react";
+import { User, Bell, Save, Trash2, Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
-import { GoogleIntegration } from "@/components/integrations/GoogleIntegration";
 import {
   Dialog,
   DialogContent,
@@ -43,8 +42,6 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 export default function SettingsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
-  const [integrationAdded, setIntegrationAdded] = useState(false);
-  const [calendarAccounts, setCalendarAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -54,7 +51,8 @@ export default function SettingsPage() {
     defaultValues: {
       name: user?.name || "",
       email: user?.email || "",
-      timezone: user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timezone:
+        user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
     },
   });
 
@@ -63,7 +61,10 @@ export default function SettingsPage() {
     if (user) {
       form.setValue("name", user.name);
       form.setValue("email", user.email);
-      form.setValue("timezone", user.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+      form.setValue(
+        "timezone",
+        user.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+      );
     }
   }, [user, form]);
 
@@ -73,65 +74,63 @@ export default function SettingsPage() {
     setSaveSuccess(false);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/update-profile`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify(data),
-      });
-      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/update-profile`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify(data),
+        }
+      );
+
       if (!response.ok) {
         throw new Error("Failed to update profile");
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       setSaveSuccess(true);
       // Clear success message after 3 seconds
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      console.error("Failed to update profile:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Connect to calendar (would integrate with Nylas in real implementation)
-  const connectCalendar = (provider: string) => {
-    if (provider === 'google') {
-      // Use our new Google integration instead
-      setActiveTab('integrations');
-    } else {
-      window.alert(`This would connect to ${provider} in a real implementation`);
-      // In a real app: call service.connect(provider) and handle OAuth flow
-    }
-  };
-
- const handleDeleteAccount = async () => {
+  const handleDeleteAccount = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/delete`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ userId: user?.id }),
-      });
-      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/delete`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ userId: user?.id }),
+        }
+      );
+
       if (response.ok) {
         // Clear token from localStorage
-        localStorage.removeItem('token');
-        localStorage.removeItem('googleAccessToken');
-        
+        localStorage.removeItem("token");
+        localStorage.removeItem("googleAccessToken");
+
         // Redirect to login page
-        window.location.href = '/auth/login';
+        window.location.href = "/auth/login";
       } else {
-        console.error('Failed to delete account, server responded with:', response.status);
+        console.error(
+          "Failed to delete account, server responded with:",
+          response.status
+        );
       }
     } catch (error) {
-      console.error('Failed to delete account:', error);
+      console.error("Failed to delete account:", error);
     }
   };
 
@@ -139,7 +138,9 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="mt-1 text-sm text-gray-600">Manage your account settings and preferences.</p>
+        <p className="mt-1 text-sm text-gray-600">
+          Manage your account settings and preferences.
+        </p>
       </div>
 
       {/* Tabs */}
@@ -147,39 +148,24 @@ export default function SettingsPage() {
         <nav className="-mb-px flex space-x-8" aria-label="Tabs">
           <button
             onClick={() => setActiveTab("profile")}
-            className={`${activeTab === "profile" 
-              ? "border-blue-500 text-blue-600" 
-              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"} 
+            className={`${
+              activeTab === "profile"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            } 
               whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
           >
             <User className="h-4 w-4 mr-2" />
             Profile
           </button>
-          <button
-            onClick={() => setActiveTab("calendars")}
-            className={`${activeTab === "calendars" 
-              ? "border-blue-500 text-blue-600" 
-              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"} 
-              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Calendar Connections
-          </button>
-          <button
-            onClick={() => setActiveTab("integrations")}
-            className={`${activeTab === "integrations" 
-              ? "border-blue-500 text-blue-600" 
-              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"} 
-              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-          >
-            <LinkIcon className="h-4 w-4 mr-2" />
-            Integrations
-          </button>
+
           <button
             onClick={() => setActiveTab("notifications")}
-            className={`${activeTab === "notifications" 
-              ? "border-blue-500 text-blue-600" 
-              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"} 
+            className={`${
+              activeTab === "notifications"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            } 
               whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
           >
             <Bell className="h-4 w-4 mr-2" />
@@ -191,8 +177,12 @@ export default function SettingsPage() {
       {/* Profile Tab */}
       {activeTab === "profile" && (
         <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900">Profile Information</h2>
-          <p className="mt-1 text-sm text-gray-600">Update your personal information.</p>
+          <h2 className="text-lg font-medium text-gray-900">
+            Profile Information
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Update your personal information.
+          </p>
 
           {saveSuccess && (
             <div className="mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
@@ -202,7 +192,10 @@ export default function SettingsPage() {
 
           <div className="mt-6">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmitProfile)} className="space-y-6">
+              <form
+                onSubmit={form.handleSubmit(onSubmitProfile)}
+                className="space-y-6"
+              >
                 <FormField
                   control={form.control}
                   name="name"
@@ -224,7 +217,11 @@ export default function SettingsPage() {
                     <FormItem>
                       <FormLabel>Email Address</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="johndoe@example.com" {...field} />
+                        <Input
+                          type="email"
+                          placeholder="johndoe@example.com"
+                          {...field}
+                        />
                       </FormControl>
                       <FormDescription>
                         This is the email you use to log in.
@@ -265,80 +262,12 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Calendar Connections Tab */}
-      {/* {activeTab === "calendars" && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900">Calendar Connections</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Connect your third-party calendars to sync your appointments.
-          </p>
-
-          <div className="mt-6 space-y-6">
-            <GoogleIntegration onSuccess={() => setIntegrationAdded(prev => !prev)} />
-
-            <div className="bg-gray-50 p-4 rounded-md">
-              <h3 className="text-md font-medium text-gray-900">Microsoft Outlook</h3>
-              <p className="mt-1 text-sm text-gray-600">
-                Connect your Outlook Calendar to automatically sync appointments.
-              </p>
-              <div className="mt-4">
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  onClick={() => connectCalendar('outlook')}
-                >
-                  <Calendar className="h-4 w-4" />
-                  Connect Outlook Calendar
-                </Button>
-              </div>
-            </div>
-            {calendarAccounts.length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-md font-medium text-gray-900">Connected Accounts</h3>
-                <ul className="mt-3 divide-y divide-gray-200">
-             
-                </ul>
-              </div>
-            )}
-          </div>
-        </div>
-      )} */}
-      
-      {/* Integrations Tab */}
-      {/* {activeTab === "integrations" && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900">Integrations</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Connect third-party services for video conferencing and calendar management.
-          </p>
-
-          <div className="mt-6 space-y-6">
-            <GoogleIntegration onSuccess={() => setIntegrationAdded(prev => !prev)} />
-            
-            <div className="bg-gray-50 p-4 rounded-md opacity-50">
-              <h3 className="text-md font-medium text-gray-900">Zoom Meetings</h3>
-              <p className="mt-1 text-sm text-gray-600">
-                Connect your Zoom account to create meeting links directly from MeetNing.
-              </p>
-              <div className="mt-4">
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  disabled
-                >
-                  <Video className="h-4 w-4" />
-                  Connect Zoom (Coming Soon)
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )} */}
-
       {/* Notifications Tab */}
       {activeTab === "notifications" && (
         <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900">Notification Preferences</h2>
+          <h2 className="text-lg font-medium text-gray-900">
+            Notification Preferences
+          </h2>
           <p className="mt-1 text-sm text-gray-600">
             Manage how you receive notifications about appointments.
           </p>
@@ -355,11 +284,15 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="ml-3 text-sm">
-                <label htmlFor="email-notifications" className="font-medium text-gray-700">
+                <label
+                  htmlFor="email-notifications"
+                  className="font-medium text-gray-700"
+                >
                   Email notifications
                 </label>
                 <p className="text-gray-500">
-                  Receive email notifications when appointments are scheduled, updated, or canceled.
+                  Receive email notifications when appointments are scheduled,
+                  updated, or canceled.
                 </p>
               </div>
             </div>
@@ -374,7 +307,10 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="ml-3 text-sm">
-                <label htmlFor="daily-summary" className="font-medium text-gray-700">
+                <label
+                  htmlFor="daily-summary"
+                  className="font-medium text-gray-700"
+                >
                   Daily summary
                 </label>
                 <p className="text-gray-500">
@@ -394,19 +330,20 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="ml-3 text-sm">
-                <label htmlFor="reminder-notifications" className="font-medium text-gray-700">
+                <label
+                  htmlFor="reminder-notifications"
+                  className="font-medium text-gray-700"
+                >
                   Reminder notifications
                 </label>
                 <p className="text-gray-500">
-                  Receive reminder notifications before your scheduled appointments.
+                  Receive reminder notifications before your scheduled
+                  appointments.
                 </p>
               </div>
             </div>
 
-            <Button
-              type="button"
-              className="flex items-center gap-2 mt-6"
-            >
+            <Button type="button" className="flex items-center gap-2 mt-6">
               <Save className="h-4 w-4" />
               Save preferences
             </Button>
@@ -442,7 +379,13 @@ export default function SettingsPage() {
                 </DialogTrigger>
 
                 <DialogTrigger asChild>
-                  <Button className="hover:cursor-pointer" onClick={handleDeleteAccount} variant="destructive">Delete Account</Button>
+                  <Button
+                    className="hover:cursor-pointer"
+                    onClick={handleDeleteAccount}
+                    variant="destructive"
+                  >
+                    Delete Account
+                  </Button>
                 </DialogTrigger>
               </DialogFooter>
             </DialogContent>

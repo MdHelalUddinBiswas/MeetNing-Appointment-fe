@@ -12,6 +12,19 @@ export interface Appointment {
   status?: "upcoming" | "completed" | "canceled";
   created_at?: string;
   user_id?: string;
+  raw_metadata?: {
+    id: string;
+    title: string;
+    start_time: string;
+    end_time: string;
+    description?: string;
+    location?: string;
+    role?: string;
+    participants: string[];
+    status?: "upcoming" | "completed" | "canceled";
+    created_at?: string;
+    user_id?: string;
+  };
 }
 
 const useAppointments = () => {
@@ -27,7 +40,7 @@ const useAppointments = () => {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/appointments`,
+        `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments`,
         {
           method: "GET",
           headers: {
@@ -37,15 +50,15 @@ const useAppointments = () => {
         }
       );
 
-      const data = await response.json();
+      const responseData  = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || "Failed to fetch appointments");
+        throw new Error(responseData .message || "Failed to fetch appointments");
       }
 
-      setAppointments(data);
-      setFilteredAppointments(data);
-      return data;
+      setAppointments(responseData?.data);
+      setFilteredAppointments(responseData?.data);
+      return responseData ;
     } catch (error: any) {
       console.error("Error fetching appointments:", error);
       setError(error.message || 'Failed to fetch appointments');

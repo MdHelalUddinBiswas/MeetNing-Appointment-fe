@@ -154,7 +154,7 @@ export default function NewAppointmentPage() {
     participants: string[];
     status: string;
     timezone?: string;
-    user_id?: string | number;
+    userId?: string | number;
     google_meet_link?: string;
   }
 
@@ -175,6 +175,7 @@ export default function NewAppointmentPage() {
   };
 
   const onSubmit = async (data: AppointmentFormValues) => {
+    console.log("Current user:", user);
     try {
       setIsSubmitting(true);
       const token = localStorage.getItem("token");
@@ -219,12 +220,39 @@ export default function NewAppointmentPage() {
         meetingUrl = data.location;
       }
 
-      // Prepare the appointment payload
-      // Get user's local timezone
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      
+
+      // Get user ID - either from user object or decode from token
+      let userId;
+      if (user && user.id) {
+        userId = user.id;
+      } else {
+        // If user object isn't available, try to get user ID from token
+        try {
+          // Simple JWT decode to get user ID (assumes JWT format with base64 encoding)
+          const tokenParts = token.split(".");
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            userId = payload.id || payload.userId || payload.sub;
+            console.log("Retrieved userId from token:", userId);
+          }
+        } catch (error) {
+          console.error("Error parsing token:", error);
+          alert("Authentication error. Please try logging in again.");
+          router.push("/login");
+          return;
+        }
+      }
+
+      if (!userId) {
+        alert("Could not identify user. Please try logging in again.");
+        router.push("/login");
+        return;
+      }
+      console.log("User ID:", userId);
       // Prepare appointment data
       const appointmentPayload: AppointmentPayload = {
+        userId,
         title: data.title,
         description: data.description || "",
         start_time: `${data.date}T${data.time}:00`,
@@ -238,7 +266,7 @@ export default function NewAppointmentPage() {
 
       // Make API call to create appointment
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/appointments`,
+        `${process.env.NEXT_PUBLIC_API_URL}/embeddings/add-appointments`,
         {
           method: "POST",
           headers: {
@@ -265,14 +293,14 @@ export default function NewAppointmentPage() {
 
         // Create proper date and time objects for the email
         const appointmentDate = new Date(data.date);
-        const [hours, minutes] = data.time.split(':').map(Number);
+        const [hours, minutes] = data.time.split(":").map(Number);
         appointmentDate.setHours(hours, minutes, 0, 0);
-        
+
         // Calculate end time based on duration
         const endDate = new Date(appointmentDate);
         const durationInMinutes = parseInt(data.duration, 10);
         endDate.setMinutes(endDate.getMinutes() + durationInMinutes);
-        
+
         // Format the date and time for display in email
         const formattedDate = appointmentDate.toLocaleDateString(undefined, {
           weekday: "long",
@@ -280,8 +308,7 @@ export default function NewAppointmentPage() {
           month: "long",
           day: "numeric",
         });
-      
-        
+
         const emailResponse = await fetch("/api/send-email", {
           method: "POST",
           headers: {

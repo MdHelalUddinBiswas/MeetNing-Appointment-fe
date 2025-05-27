@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams} from "next/navigation";
 import Link from "next/link";
 import {
   Calendar,
@@ -44,9 +44,6 @@ type Appointment = {
 export default function AppointmentDetailsPage() {
   const params = useParams();
   const appointmentId = params.appointmentId as string;
-
-  const router = useRouter();
-
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,54 +51,73 @@ export default function AppointmentDetailsPage() {
   const [newParticipantEmail, setNewParticipantEmail] = useState("");
   const [newParticipantName, setNewParticipantName] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
-
   const token = localStorage.getItem("token");
 
-  useEffect(() => {
-    // In a real application, this would fetch the appointment details from an API
-    const fetchAppointment = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              "x-auth-token": token || "",
-            },
-          }
-        );
-        const data = await response.json();
-        setAppointment(data);
-        console.log(data);
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to fetch appointment");
-        }
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      } catch (err) {
-        console.error("Error fetching appointment:", err);
-        setError("Failed to load appointment details. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAppointment();
-  }, [appointmentId]);
-
-  const handleDelete = async () => {
+  const fetchAppointment = async () => {
+    setLoading(true);
     try {
-      // In a real app, this would make an API call to delete the appointment
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Check if token exists
+      if (!token) {
+        console.error("No authentication token found");
+        setError("Authentication required. Please login again.");
+        setLoading(false);
+        return;
+      }
 
-      router.push("/appointments");
+      console.log("Fetching appointment with ID:", appointmentId);
+      console.log("Using token:", token ? "[TOKEN EXISTS]" : "[NO TOKEN]");
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "x-auth-token": token
+          },
+        }
+      );
+      
+      // Check if response is OK before trying to parse JSON
+      if (!response.ok) {
+        // Handle different HTTP error codes
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Authentication error. Please login again.");
+        } else if (response.status === 404) {
+          throw new Error("Appointment not found.");
+        } else {
+          throw new Error(`Server error: ${response.status}`);
+        }
+      }
+      
+      // Try to parse the JSON response
+      let responseJson;
+      try {
+        responseJson = await response.json();
+        console.log("Fetched appointment:", responseJson);
+      } catch (parseError) {
+        console.error("Failed to parse response as JSON:", parseError);
+        throw new Error("Invalid server response. Please try again later.");
+      }
+      
+      // Check if the response has the expected data structure
+      if (!responseJson.data) {
+        throw new Error("Invalid response format. Missing appointment data.");
+      }
+      
+      setAppointment(responseJson.data);
     } catch (err) {
-      console.error("Error deleting appointment:", err);
-      setError("Failed to delete appointment. Please try again.");
+      console.error("Error fetching appointment:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to load appointment details. Please try again.";
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchAppointment();
+  }, [appointmentId]);
 
   const handleAddParticipant = async () => {
     if (!newParticipantEmail) {
@@ -121,15 +137,16 @@ export default function AppointmentDetailsPage() {
       const updatedParticipants = [...currentParticipants, newParticipant];
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}/participants`,
         {
-          method: "PUT",
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            "x-auth-token": token || "",
           },
           body: JSON.stringify({
-            participants: updatedParticipants,
+            email: newParticipantEmail,
+            name: newParticipantName || undefined
           }),
         }
       );
@@ -139,7 +156,6 @@ export default function AppointmentDetailsPage() {
       if (response.ok) {
         console.log("Participant added successfully");
 
-        // Send email notification via server-side API route
         try {
           console.log("Sending email notification to:", newParticipantEmail);
 
@@ -181,17 +197,13 @@ export default function AppointmentDetailsPage() {
           console.error("Error sending email notification:", emailError);
           // Don't throw here to avoid breaking the participant addition flow
         }
-
-        // Update local state
         setAppointment({
           ...appointment!,
           participants: updatedParticipants,
         });
 
-        // Close the dialog
         setDialogOpen(false);
 
-        // Reset form
         setNewParticipantEmail("");
         setNewParticipantName("");
       } else {
@@ -207,80 +219,78 @@ export default function AppointmentDetailsPage() {
     newStatus: "upcoming" | "completed" | "canceled"
   ) => {
     try {
+      // Check if token exists
+      if (!token) {
+        setError("Authentication required. Please login again.");
+        return;
+      }
+
+      // Check if appointment exists
+      if (!appointment) {
+        setError("Cannot update: appointment details not loaded.");
+        return;
+      }
+      
+      let endpoint = "";
+      
+      // Use the specific endpoints for each status change
       if (newStatus === "completed") {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "x-auth-token": token || "",
-            },
-            body: JSON.stringify({
-              status: newStatus,
-            }),
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to complete appointment");
-        }
+        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}/complete`;
+      } else if (newStatus === "canceled") {
+        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}/cancel`;
+      } else {
+        // For other status changes, use the general update endpoint
+        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}`;
       }
-
+      
+      console.log(`Changing appointment status to ${newStatus}`);
+      
+      // Update the local state immediately for better UX
+      setAppointment({ ...appointment, status: newStatus });
+      
+      // If cancelling, close dialog immediately for better UX
       if (newStatus === "canceled") {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "x-auth-token": token || "",
-            },
-            body: JSON.stringify({
-              status: newStatus,
-            }),
-          }
-        );
+        setDeleteConfirmOpen(false);
+      }
+      
+      const response = await fetch(endpoint, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": token
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      });
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to cancel appointment");
+      // Check if response is OK before trying to parse JSON
+      if (!response.ok) {
+        // Reset the appointment state if the server request failed
+        fetchAppointment();
+        
+        // Handle different HTTP error codes
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Authentication error. Please login again.");
+        } else {
+          throw new Error(`Server error: ${response.status}`);
         }
       }
 
-      if (newStatus === "upcoming") {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "x-auth-token": token || "",
-            },
-            body: JSON.stringify({
-              status: newStatus,
-            }),
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to reschedule appointment");
-        }
+      let data;
+      try {
+        data = await response.json();
+        console.log("Status updated successfully:", data);
+      } catch (parseError) {
+        console.error("Failed to parse response as JSON:", parseError);
+        throw new Error("Invalid server response. Please try again later.");
       }
-      // In a real app, this would make an API call to update the appointment status
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      if (appointment) {
-        setAppointment({ ...appointment, status: newStatus });
-      }
-    } catch (err) {
-      console.error("Error updating appointment status:", err);
-      setError("Failed to update appointment status. Please try again.");
+      
+      // Refresh the appointment data after successful status change
+      fetchAppointment();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update appointment status. Please try again.";
+      setError(`Failed to update appointment status. ${errorMessage}`);
     }
   };
 
@@ -351,7 +361,6 @@ export default function AppointmentDetailsPage() {
 
   // Format appointment date and times
   const startDateTime = new Date(appointment?.start_time);
-
   const formattedDate = startDateTime.toLocaleDateString(undefined, {
     weekday: "long",
     year: "numeric",
@@ -364,7 +373,6 @@ export default function AppointmentDetailsPage() {
     minute: "2-digit",
   });
 
-  // Calculate duration in minutes if start_time and end_time are available
   const startTime = new Date(appointment.start_time).getTime();
   const endTime = new Date(appointment.end_time).getTime();
   const durationMinutes = Math.round((endTime - startTime) / (1000 * 60));
@@ -394,7 +402,7 @@ export default function AppointmentDetailsPage() {
             {appointment?.description}
           </p>
         </div>
-        {appointment.role === "owner" && (
+        {appointment?.role === "owner" && (
           <div className="flex space-x-3">
             {appointment.status === "upcoming" && (
               <>
@@ -548,79 +556,67 @@ export default function AppointmentDetailsPage() {
         </div>
       </div>
 
-      {appointment.status === "upcoming" && (
-        <div className="bg-blue-50 rounded-lg shadow p-6">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <Calendar className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-lg font-medium text-blue-800">
-                Calendar Integration
-              </h3>
-              <p className="mt-2 text-sm text-blue-700">
-                This appointment has been added to your calendar. Any changes or
-                cancellations will be automatically updated in your calendar.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="flex justify-between">
         <Link href="/appointments">
           <Button variant="outline">Back to Appointments</Button>
         </Link>
-        <div className="flex gap-2">
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>Add Participant</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Add New Participant</DialogTitle>
-                <DialogDescription>
-                  Add a new participant to this appointment. They will receive
-                  notification about the meeting details.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newParticipantEmail}
-                    onChange={(e) => setNewParticipantEmail(e.target.value)}
-                    placeholder="participant@example.com"
-                    className="col-span-3"
-                    required
-                  />
+        {appointment?.role === "owner" && (
+          <div className="flex gap-2">
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>Add Participant</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Participant</DialogTitle>
+                  <DialogDescription>
+                    Add a new participant to this appointment. They will receive
+                    notification about the meeting details.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="email" className="text-right">
+                      Email
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newParticipantEmail}
+                      onChange={(e) => setNewParticipantEmail(e.target.value)}
+                      placeholder="participant@example.com"
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">
+                      Name (Optional)
+                    </Label>
+                    <Input
+                      id="name"
+                      value={newParticipantName}
+                      onChange={(e) => setNewParticipantName(e.target.value)}
+                      placeholder="Participant Name"
+                      className="col-span-3"
+                    />
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Name (Optional)
-                  </Label>
-                  <Input
-                    id="name"
-                    value={newParticipantName}
-                    onChange={(e) => setNewParticipantName(e.target.value)}
-                    placeholder="Participant Name"
-                    className="col-span-3"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddParticipant}>Add Participant</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddParticipant}>
+                    Add Participant
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
       </div>
     </div>
   );

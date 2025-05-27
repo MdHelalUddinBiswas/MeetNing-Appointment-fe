@@ -46,10 +46,11 @@ export default function CalendarPage() {
       // Generate some sample events
       const now = new Date();
       const token = localStorage.getItem("token");
+      // Update the fetchEvents function to handle the new response structure
       const fetchEvents = async () => {
         try {
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/appointments`,
+            `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments`,
             {
               method: "GET",
               headers: {
@@ -66,45 +67,26 @@ export default function CalendarPage() {
             );
           }
 
-          const data = await response.json();
-          console.log("Fetched appointments:", data);
-          setEvents(data);
+          const responseData = await response.json();
+          console.log("Fetched appointments:", responseData);
+
+          // Extract the data array from the response
+          if (responseData.success && Array.isArray(responseData.data)) {
+            setEvents(responseData.data);
+          } else {
+            // If the format is unexpected, set an empty array
+            console.error("Unexpected response format:", responseData);
+            setEvents([]);
+          }
         } catch (error) {
           console.error("Error fetching events:", error);
+          setEvents([]);
         } finally {
           setIsLoading(false);
         }
       };
       fetchEvents();
 
-      // const sampleEvents: CalendarEvent[] = [
-      //   {
-      //     id: "1",
-      //     title: "Team Standup",
-      //     start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0),
-      //     end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 30),
-      //     participants: ["john@example.com", "sarah@example.com"],
-      //     location: "Google Meet",
-      //   },
-      //   {
-      //     id: "2",
-      //     title: "Client Meeting",
-      //     start: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 14, 0),
-      //     end: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 15, 0),
-      //     participants: ["client@example.com"],
-      //     location: "Conference Room A",
-      //   },
-      //   {
-      //     id: "3",
-      //     title: "Product Review",
-      //     start: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 13, 0),
-      //     end: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 15, 0),
-      //     participants: ["team@example.com"],
-      //     location: "Google Meet",
-      //   },
-      // ];
-
-      // setEvents(sampleEvents);
       setIsLoading(false);
     }, 1000);
 
@@ -592,26 +574,6 @@ export default function CalendarPage() {
         {viewType === "week" && renderWeekView()}
         {viewType === "day" && renderDayView()}
       </div>
-
-      {/* Calendar connection prompt */}
-      {!isCalendarConnected && (
-        <div className="bg-blue-50 rounded-lg shadow p-6">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <CalendarIcon className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-lg font-medium text-blue-800">
-                Connect your calendar
-              </h3>
-              <p className="mt-2 text-sm text-blue-700">
-                Connect your Google or Outlook calendar to automatically sync
-                appointments and see them all in one place.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

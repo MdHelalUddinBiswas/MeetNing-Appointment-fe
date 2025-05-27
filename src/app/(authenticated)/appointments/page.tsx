@@ -9,10 +9,10 @@ import {
   PlusCircle,
   Search,
   Trash2,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/lib/auth-context";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,6 @@ import {
 import useAppointments, { Appointment } from "../../hooks/Appointment";
 
 export default function AppointmentsPage() {
-  const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -73,7 +72,7 @@ export default function AppointmentsPage() {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentToDelete}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentToDelete}`,
         {
           method: "DELETE",
           headers: {
@@ -219,7 +218,7 @@ export default function AppointmentsPage() {
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
                     <Link
-                      href={`/appointments/${appointment.id}`}
+                      href={`/appointments/${appointment?.id}`}
                       className="block hover:bg-gray-50"
                     >
                       <p className="text-sm font-medium text-blue-600">
@@ -252,8 +251,8 @@ export default function AppointmentsPage() {
                       </div>
                       <div className="mt-2 flex items-center text-sm text-gray-500">
                         <span className="truncate">
-                          {appointment.participants?.length || 0} participant
-                          {(appointment.participants?.length || 0) !== 1
+                          {appointment?.raw_metadata?.participants?.length || 0} participant
+                          {(appointment?.raw_metadata?.participants?.length || 0) !== 1
                             ? "s"
                             : ""}
                           {appointment.location && ` • ${appointment.location}`}

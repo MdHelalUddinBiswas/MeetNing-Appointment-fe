@@ -69,14 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
             );
 
-            if (response.ok) {
+            if (response.status === 200) {
               const userData = await response.json();
-              setUser(userData.user);
+              setUser(userData);
             } else if (response.status === 401) {
-              // Only clear token if specifically unauthorized (401)
               console.log("Auth token expired or invalid");
               localStorage.removeItem("token");
-              // Don't automatically redirect - let the protected route handle it
             } else {
               // Some other server error - don't clear token, might be temporary
               console.error(
@@ -144,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   };
-
+  console.log("User logged in successfully", user);
   const signup = async (
     name: string,
     email: string,
@@ -257,7 +255,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear token from localStorage
     localStorage.removeItem("token");
 
-    // Reset user state
     setUser(null);
 
     // Navigate to login
@@ -333,5 +330,11 @@ export function useAuth() {
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
-  return context;
+
+  // Make sure we're exposing the loading state with the correct property name
+  // Some components expect 'loading' but context uses 'isLoading'
+  return {
+    ...context,
+    loading: context.isLoading,
+  };
 }

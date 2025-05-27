@@ -16,57 +16,64 @@ type UpcomingAppointment = {
   participants: string[];
 };
 
+type Participant = string | { email: string } | { email?: string };
+
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [isCalendarConnected, setIsCalendarConnected] =
-    useState<boolean>(false);
   const [upcomingAppointments, setUpcomingAppointments] = useState<
     UpcomingAppointment[]
   >([]);
 
-  const {
-    appointments,
-    filteredAppointments,
-    isLoading,
-    error,
-    fetchAppointments,
-    filterAppointments,
-  } = useAppointments();
+  const { appointments, isLoading, fetchAppointments, filterAppointments } =
+    useAppointments();
 
-  // Transform appointments data to match the dashboard needs
   useEffect(() => {
-    // First ensure we're not loading and set calendar connection status
     if (!isLoading) {
-      setIsCalendarConnected(false);
-
       try {
-        // Check if we have appointment data
         if (appointments && appointments.length > 0) {
           console.log("Processing", appointments.length, "appointments");
 
-          // Process real data from the API
-          // Type to handle the null values from the mapping operation
           type ProcessedAppointment = UpcomingAppointment | null;
-
-          // Process appointments in two steps for better type safety
-          // Step 1: Process each appointment and allow nulls for invalid entries
           const processedAppointments = appointments
-            .filter((apt) => !apt.status || apt.status === "upcoming")
+            .filter((apt) => {
+              // Check if appointment has raw_metadata and extract status from it
+              const status = apt.raw_metadata?.status || apt.status;
+              return !status || status === "upcoming";
+            })
             .map((apt) => {
               try {
                 // Handle API's snake_case properties
-                const startDate = new Date(apt.start_time);
-                const endDate = new Date(apt.end_time);
+                const startTime =
+                  apt.raw_metadata?.start_time || apt.start_time;
+                const endTime = apt.raw_metadata?.end_time || apt.end_time;
+                const startDate = new Date(startTime);
+                const endDate = new Date(endTime);
 
                 // Skip invalid dates
                 if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
                   return null;
                 }
 
+                // Extract participants from raw_metadata if available
+                let participants: string[] = []; // Explicitly type as string array
+                if (apt.raw_metadata?.participants) {
+                  participants = Array.isArray(apt.raw_metadata.participants)
+                    ? (apt.raw_metadata.participants as Participant[])
+                        .map((p) =>
+                          typeof p === "string" ? p : p?.email || ""
+                        )
+                        .filter(Boolean)
+                    : [];
+                } else if (apt.participants) {
+                  participants = Array.isArray(apt.participants)
+                    ? apt.participants
+                    : [];
+                }
+
                 // Valid appointment - convert to dashboard format
                 return {
                   id: apt.id,
-                  title: apt.title,
+                  title: apt.raw_metadata?.title || apt.title,
                   date: startDate.toISOString().split("T")[0],
                   time: startDate.toLocaleTimeString([], {
                     hour: "2-digit",
@@ -75,9 +82,7 @@ export default function DashboardPage() {
                   duration: Math.round(
                     (endDate.getTime() - startDate.getTime()) / 60000
                   ),
-                  participants: Array.isArray(apt.participants)
-                    ? apt.participants
-                    : [],
+                  participants: participants,
                 };
               } catch (e) {
                 console.error("Error processing appointment:", e, apt);
@@ -85,7 +90,7 @@ export default function DashboardPage() {
               }
             });
 
-          // Step 2: Filter out nulls with explicit type safety
+          // Filter out nulls with explicit type safety
           const upcoming: UpcomingAppointment[] = processedAppointments.filter(
             (apt): apt is UpcomingAppointment => apt !== null
           );
@@ -280,27 +285,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-
-      {/* Conditional card for calendar connection */}
-      {!isCalendarConnected && (
-        <div className="bg-blue-50 rounded-lg shadow p-6">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <Calendar className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-lg font-medium text-blue-800">
-                Connect your calendar
-              </h3>
-              <p className="mt-2 text-sm text-blue-700">
-                Connect your Google or Outlook calendar to start scheduling
-                appointments and have them automatically synced with your
-                existing calendar.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
