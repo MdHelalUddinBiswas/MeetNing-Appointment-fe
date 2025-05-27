@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,7 +35,8 @@ const resetPasswordSchema = z
 
 type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
-export default function ResetPasswordPage() {
+// Content component with search params access
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -104,8 +105,7 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
-      <div className="w-full max-w-md space-y-8">
+    <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">
             Reset Password
@@ -190,6 +190,35 @@ export default function ResetPasswordPage() {
           </form>
         </Form>
       </div>
+  );
+}
+
+// Loading fallback for Suspense
+function ResetPasswordFallback() {
+  return (
+    <div className="w-full max-w-md space-y-8 text-center">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+          Reset Password
+        </h1>
+        <p className="mt-2 text-sm text-gray-600">
+          Loading reset password form...
+        </p>
+      </div>
+      <div className="bg-white p-8 shadow rounded-lg flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
+      </div>
+    </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function ResetPasswordPage() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
+      <Suspense fallback={<ResetPasswordFallback />}>
+        <ResetPasswordContent />
+      </Suspense>
     </div>
   );
 }
