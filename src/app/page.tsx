@@ -38,8 +38,9 @@ export default function Home() {
                 <span className="block text-blue-600">Scheduling with AI</span>
               </h1>
               <p className="mt-6 text-lg text-gray-600">
-                MeetNing uses AI to understand your schedule and preferences, making appointment scheduling 
-                effortless. Connect your calendar, invite participants, and let our smart assistant find the 
+                MeetNing uses AI to understand your schedule and preferences,
+                making appointment scheduling effortless. Connect your calendar,
+                invite participants, and let our smart assistant find the
                 perfect time slot.
               </p>
               <div className="mt-10 sm:flex sm:justify-center lg:justify-start">
@@ -50,7 +51,9 @@ export default function Home() {
                 </div>
                 <div className="mt-3 sm:mt-0 sm:ml-3">
                   <Link href="/auth/login">
-                    <Button variant="outline" size="lg">Sign in</Button>
+                    <Button variant="outline" size="lg">
+                      Sign in
+                    </Button>
                   </Link>
                 </div>
               </div>
@@ -75,7 +78,8 @@ export default function Home() {
               Scheduling made simple
             </h2>
             <p className="mt-4 max-w-2xl text-lg text-gray-600 mx-auto">
-              Our intuitive platform makes it easy to manage your time and coordinate with others.
+              Our intuitive platform makes it easy to manage your time and
+              coordinate with others.
             </p>
           </div>
 
@@ -87,9 +91,12 @@ export default function Home() {
                   <Calendar className="h-6 w-6" />
                 </div>
                 <div className="mt-5">
-                  <h3 className="text-lg font-medium text-gray-900">Calendar Integration</h3>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Calendar Integration
+                  </h3>
                   <p className="mt-2 text-base text-gray-600">
-                    Connect with Google Calendar, Outlook, and other providers to automatically sync your existing schedules.
+                    Connect with Google Calendar, Outlook, and other providers
+                    to automatically sync your existing schedules.
                   </p>
                 </div>
               </div>
@@ -100,9 +107,12 @@ export default function Home() {
                   <BrainCircuit className="h-6 w-6" />
                 </div>
                 <div className="mt-5">
-                  <h3 className="text-lg font-medium text-gray-900">Smart Scheduling</h3>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Smart Scheduling
+                  </h3>
                   <p className="mt-2 text-base text-gray-600">
-                    Our AI analyzes everyone's availability to suggest the best meeting times based on preferences and past behavior.
+                    Our AI analyzes everyone's availability to suggest the best
+                    meeting times based on preferences and past behavior.
                   </p>
                 </div>
               </div>
@@ -113,9 +123,12 @@ export default function Home() {
                   <Video className="h-6 w-6" />
                 </div>
                 <div className="mt-5">
-                  <h3 className="text-lg font-medium text-gray-900">Video Conferencing</h3>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Video Conferencing
+                  </h3>
                   <p className="mt-2 text-base text-gray-600">
-                    Automatically generate Google Meet links for your appointments, making virtual meetings seamless.
+                    Automatically generate Google Meet links for your
+                    appointments, making virtual meetings seamless.
                   </p>
                 </div>
               </div>
@@ -126,9 +139,12 @@ export default function Home() {
                   <Users className="h-6 w-6" />
                 </div>
                 <div className="mt-5">
-                  <h3 className="text-lg font-medium text-gray-900">Team Coordination</h3>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Team Coordination
+                  </h3>
                   <p className="mt-2 text-base text-gray-600">
-                    Schedule meetings with multiple participants, while respecting everyone's availability and preferences.
+                    Schedule meetings with multiple participants, while
+                    respecting everyone's availability and preferences.
                   </p>
                 </div>
               </div>
@@ -139,9 +155,12 @@ export default function Home() {
                   <Clock className="h-6 w-6" />
                 </div>
                 <div className="mt-5">
-                  <h3 className="text-lg font-medium text-gray-900">Automatic Reminders</h3>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Automatic Reminders
+                  </h3>
                   <p className="mt-2 text-base text-gray-600">
-                    Send customized notifications to all participants before meetings to ensure everyone is prepared.
+                    Send customized notifications to all participants before
+                    meetings to ensure everyone is prepared.
                   </p>
                 </div>
               </div>
@@ -149,14 +168,27 @@ export default function Home() {
               {/* Feature 6 */}
               <div className="bg-blue-50 p-6 rounded-lg shadow">
                 <div className="flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 </div>
                 <div className="mt-5">
-                  <h3 className="text-lg font-medium text-gray-900">Time Zone Intelligence</h3>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Time Zone Intelligence
+                  </h3>
                   <p className="mt-2 text-base text-gray-600">
-                    MeetNing automatically handles time zone differences, displaying times in each participant's local zone.
+                    MeetNing automatically handles time zone differences,
+                    displaying times in each participant's local zone.
                   </p>
                 </div>
               </div>
@@ -170,12 +202,17 @@ export default function Home() {
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8 lg:flex lg:items-center lg:justify-between">
           <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
             <span className="block">Ready to get started?</span>
-            <span className="block text-blue-200">Sign up today and start scheduling smarter.</span>
+            <span className="block text-blue-200">
+              Sign up today and start scheduling smarter.
+            </span>
           </h2>
           <div className="mt-8 flex lg:mt-0 lg:flex-shrink-0">
             <div className="inline-flex rounded-md shadow">
               <Link href="/auth/signup">
-                <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700">
+                <Button
+                  size="lg"
+                  className="bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                >
                   Get started
                 </Button>
               </Link>

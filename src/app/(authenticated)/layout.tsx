@@ -78,6 +78,7 @@ export default function AuthenticatedLayout({
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <Navbar />
+      
 
       {/* Content area - fixed sidebar width with scrollable content */}
       <div className="flex-1 flex overflow-hidden">

@@ -66,7 +66,7 @@ export function Navbar() {
                 <p className="text-sm font-medium text-gray-700">{user?.name || "User"}</p>
                 <div className="flex space-x-3">
                   <Link
-                    href="/profile"
+                    href="/settings"
                     className="text-xs font-medium text-gray-500 hover:text-gray-700"
                   >
                     Profile
@@ -155,7 +155,7 @@ export function Navbar() {
                     <p className="text-sm font-medium text-gray-700">{user?.name || "User"}</p>
                     <div className="flex space-x-3">
                       <Link
-                        href="/profile"
+                        href="/settings"
                         className="text-xs font-medium text-gray-500 hover:text-gray-700"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >

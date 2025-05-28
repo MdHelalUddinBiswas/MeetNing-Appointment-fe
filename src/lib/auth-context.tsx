@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 
 interface User {
   id: string;
@@ -51,7 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const checkAuth = async () => {
       try {
         setIsLoading(true);
-        const token = localStorage.getItem("token");
+        // Try to get token from cookies first, then localStorage as fallback
+        const token = Cookies.get("token") || localStorage.getItem("token");
         const googleToken = localStorage.getItem("googleAccessToken");
 
         if (token || googleToken) {
@@ -122,8 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(data.message || "Login failed");
       }
 
-      // Store only the token in localStorage
+      // Store token in both localStorage and cookies
       localStorage.setItem("token", data.token);
+      Cookies.set("token", data.token, { 
+        expires: 7, // expires in 7 days
+        path: '/' 
+      });
 
       // Update user state
       setUser(data.user);
@@ -282,8 +288,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    // Clear token from localStorage
+    // Clear token from both localStorage and cookies
     localStorage.removeItem("token");
+    Cookies.remove("token");
 
     setUser(null);
 

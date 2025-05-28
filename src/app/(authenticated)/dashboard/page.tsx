@@ -24,16 +24,12 @@ export default function DashboardPage() {
     UpcomingAppointment[]
   >([]);
 
-  const { appointments, isLoading, fetchAppointments, filterAppointments } =
-    useAppointments();
+  const { appointments, isLoading } = useAppointments();
 
   useEffect(() => {
     if (!isLoading) {
       try {
         if (appointments && appointments.length > 0) {
-          console.log("Processing", appointments.length, "appointments");
-
-          type ProcessedAppointment = UpcomingAppointment | null;
           const processedAppointments = appointments
             .filter((apt) => {
               // Check if appointment has raw_metadata and extract status from it
@@ -161,7 +157,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Stats cards */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0 p-3 rounded-md bg-blue-100">
@@ -218,7 +213,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Upcoming appointments */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">
