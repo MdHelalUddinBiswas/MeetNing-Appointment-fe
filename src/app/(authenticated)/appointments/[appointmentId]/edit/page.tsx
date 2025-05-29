@@ -5,16 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import {
-  Calendar,
-  Clock,
-  Users,
-  BrainCircuit,
-  Link as LinkIcon,
-  AlertCircle,
-  CheckCircle,
-  Info,
-} from "lucide-react";
+import { Calendar, Clock, Users, Link as LinkIcon, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -77,12 +68,9 @@ export default function EditAppointmentPage() {
   const params = useParams();
   const appointmentId = params.appointmentId as string;
   const router = useRouter();
-
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTitle, setDialogTitle] = useState("");
   const [dialogMessage, setDialogMessage] = useState("");
@@ -126,18 +114,39 @@ export default function EditAppointmentPage() {
         );
 
         if (!response.ok) {
-          throw new Error("Failed to fetch appointment details");
+          if (response.status === 404) {
+            throw new Error("Appointment not found");
+          } else {
+            throw new Error(`Failed to fetch appointment details: ${response.status}`);
+          }
         }
 
         const data = await response.json();
+        console.log("Appointment data:", data);
         setAppointment(data);
 
-        // Calculate duration in minutes between start and end time
-        const start = new Date(data.start_time);
-        const end = new Date(data.end_time);
-        const durationInMinutes = Math.round(
-          (end.getTime() - start.getTime()) / 60000
-        );
+        // Safely parse dates with validation
+        let start, end, durationInMinutes;
+        try {
+          // Ensure start_time and end_time are valid
+          if (!data.start_time || !data.end_time) {
+            throw new Error("Missing start or end time in appointment data");
+          }
+          
+          start = new Date(data.start_time);
+          end = new Date(data.end_time);
+          
+          // Validate that dates are valid
+          if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            throw new Error("Invalid date format in appointment data");
+          }
+          
+          durationInMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+          console.log("Parsed dates successfully:", { start, end, durationInMinutes });
+        } catch (dateError) {
+          console.error("Error parsing appointment dates:", dateError);
+          durationInMinutes = 30; // Default to 30 minutes if calculation fails
+        }
 
         // Format participants list to comma-separated string
         let participantsString = "";
@@ -147,9 +156,35 @@ export default function EditAppointmentPage() {
             .join(", ");
         }
 
-        // Extract date and time parts
-        const datePart = new Date(data.start_time).toISOString().split("T")[0];
-        const timePart = new Date(data.start_time).toTimeString().slice(0, 5);
+        // Safely extract date and time parts
+        let datePart = "";
+        let timePart = "";
+        
+        try {
+          if (start && !isNaN(start.getTime())) {
+            // Format date as YYYY-MM-DD
+            datePart = start.toISOString().split("T")[0];
+            
+            // Format time as HH:MM
+            const hours = start.getHours().toString().padStart(2, "0");
+            const minutes = start.getMinutes().toString().padStart(2, "0");
+            timePart = `${hours}:${minutes}`;
+            
+            console.log("Extracted date and time parts:", { datePart, timePart });
+          } else {
+            // Use current date/time as fallback
+            const now = new Date();
+            datePart = now.toISOString().split("T")[0];
+            timePart = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+            console.log("Using fallback date/time");
+          }
+        } catch (formatError) {
+          console.error("Error formatting date/time:", formatError);
+          // Use current date as fallback
+          const now = new Date();
+          datePart = now.toISOString().split("T")[0];
+          timePart = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+        }
 
         // Set form default values
         form.reset({
@@ -214,7 +249,7 @@ export default function EditAppointmentPage() {
 
       // Make API call to update appointment
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}`,
         {
           method: "PUT",
           headers: {

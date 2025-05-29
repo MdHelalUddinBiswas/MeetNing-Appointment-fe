@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams} from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   Calendar,
@@ -66,18 +66,18 @@ export default function AppointmentDetailsPage() {
 
       console.log("Fetching appointment with ID:", appointmentId);
       console.log("Using token:", token ? "[TOKEN EXISTS]" : "[NO TOKEN]");
-      
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            "x-auth-token": token
+            "x-auth-token": token,
           },
         }
       );
-      
+
       // Check if response is OK before trying to parse JSON
       if (!response.ok) {
         // Handle different HTTP error codes
@@ -89,7 +89,7 @@ export default function AppointmentDetailsPage() {
           throw new Error(`Server error: ${response.status}`);
         }
       }
-      
+
       // Try to parse the JSON response
       let responseJson;
       try {
@@ -99,16 +99,19 @@ export default function AppointmentDetailsPage() {
         console.error("Failed to parse response as JSON:", parseError);
         throw new Error("Invalid server response. Please try again later.");
       }
-      
+
       // Check if the response has the expected data structure
       if (!responseJson.data) {
         throw new Error("Invalid response format. Missing appointment data.");
       }
-      
+
       setAppointment(responseJson.data);
     } catch (err) {
       console.error("Error fetching appointment:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to load appointment details. Please try again.";
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Failed to load appointment details. Please try again.";
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -146,7 +149,7 @@ export default function AppointmentDetailsPage() {
           },
           body: JSON.stringify({
             email: newParticipantEmail,
-            name: newParticipantName || undefined
+            name: newParticipantName || undefined,
           }),
         }
       );
@@ -230,9 +233,9 @@ export default function AppointmentDetailsPage() {
         setError("Cannot update: appointment details not loaded.");
         return;
       }
-      
+
       let endpoint = "";
-      
+
       // Use the specific endpoints for each status change
       if (newStatus === "completed") {
         endpoint = `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}/complete`;
@@ -242,22 +245,22 @@ export default function AppointmentDetailsPage() {
         // For other status changes, use the general update endpoint
         endpoint = `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}`;
       }
-      
+
       console.log(`Changing appointment status to ${newStatus}`);
-      
+
       // Update the local state immediately for better UX
       setAppointment({ ...appointment, status: newStatus });
-      
+
       // If cancelling, close dialog immediately for better UX
       if (newStatus === "canceled") {
         setDeleteConfirmOpen(false);
       }
-      
+
       const response = await fetch(endpoint, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-auth-token": token
+          "x-auth-token": token,
         },
         body: JSON.stringify({
           status: newStatus,
@@ -268,7 +271,7 @@ export default function AppointmentDetailsPage() {
       if (!response.ok) {
         // Reset the appointment state if the server request failed
         fetchAppointment();
-        
+
         // Handle different HTTP error codes
         if (response.status === 401 || response.status === 403) {
           throw new Error("Authentication error. Please login again.");
@@ -285,11 +288,14 @@ export default function AppointmentDetailsPage() {
         console.error("Failed to parse response as JSON:", parseError);
         throw new Error("Invalid server response. Please try again later.");
       }
-      
+
       // Refresh the appointment data after successful status change
       fetchAppointment();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update appointment status. Please try again.";
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to update appointment status. Please try again.";
       setError(`Failed to update appointment status. ${errorMessage}`);
     }
   };
@@ -378,7 +384,7 @@ export default function AppointmentDetailsPage() {
   const durationMinutes = Math.round((endTime - startTime) / (1000 * 60));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mt-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center">
@@ -560,7 +566,7 @@ export default function AppointmentDetailsPage() {
         <Link href="/appointments">
           <Button variant="outline">Back to Appointments</Button>
         </Link>
-        {appointment?.role === "owner" && (
+        {appointment?.role === "owner" && appointment.status === "upcoming" && (
           <div className="flex gap-2">
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>

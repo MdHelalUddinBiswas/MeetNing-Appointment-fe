@@ -129,8 +129,8 @@ export default function NewAppointmentPage() {
 
       // Placeholder times - to be replaced with actual available times from API
       const times = ["09:00", "11:30", "14:00", "16:30"];
-        setSuggestedTimes(times);
-        setUseSuggestions(true);
+      setSuggestedTimes(times);
+      setUseSuggestions(true);
     } catch (error) {
       console.error("Error fetching suggested times:", error);
       showDialog("Error", "Could not fetch suggested times. Please try again.");
@@ -222,37 +222,9 @@ export default function NewAppointmentPage() {
 
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-      // Get user ID - either from user object or decode from token
-      let userId;
-      if (user && user.id) {
-        userId = user.id;
-      } else {
-        // If user object isn't available, try to get user ID from token
-        try {
-          // Simple JWT decode to get user ID (assumes JWT format with base64 encoding)
-          const tokenParts = token.split(".");
-          if (tokenParts.length === 3) {
-            const payload = JSON.parse(atob(tokenParts[1]));
-            userId = payload.id || payload.userId || payload.sub;
-            console.log("Retrieved userId from token:", userId);
-          }
-        } catch (error) {
-          console.error("Error parsing token:", error);
-          alert("Authentication error. Please try logging in again.");
-          router.push("/login");
-          return;
-        }
-      }
-
-      if (!userId) {
-        alert("Could not identify user. Please try logging in again.");
-        router.push("/login");
-        return;
-      }
-      console.log("User ID:", userId);
       // Prepare appointment data
       const appointmentPayload: AppointmentPayload = {
-        userId,
+        userId: user?.id,
         title: data.title,
         description: data.description || "",
         start_time: `${data.date}T${data.time}:00`,
@@ -260,11 +232,9 @@ export default function NewAppointmentPage() {
         location: meetingUrl || "",
         participants: participantsArray,
         status: "upcoming",
-        timezone: userTimezone, // Include user's timezone
+        timezone: userTimezone,
       };
-      console.log("Appointment payload:", appointmentPayload);
 
-      // Make API call to create appointment
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/embeddings/add-appointments`,
         {
@@ -278,14 +248,11 @@ export default function NewAppointmentPage() {
       );
 
       const responseData = await response.json();
-      console.log("Appointment creation response:", responseData);
 
       if (!response.ok) {
         const errorData = responseData;
         throw new Error(errorData.message || "Failed to create appointment");
       }
-
-      console.log("Appointment created successfully");
 
       // Send email notification to participants via server-side API route
       try {
@@ -301,14 +268,6 @@ export default function NewAppointmentPage() {
         const durationInMinutes = parseInt(data.duration, 10);
         endDate.setMinutes(endDate.getMinutes() + durationInMinutes);
 
-        // Format the date and time for display in email
-        const formattedDate = appointmentDate.toLocaleDateString(undefined, {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
-
         const emailResponse = await fetch("/api/send-email", {
           method: "POST",
           headers: {
@@ -318,12 +277,12 @@ export default function NewAppointmentPage() {
             to: participantsArray,
             subject: `You've been added to "${data.title}" appointment`,
             appointmentTitle: data.title,
-            startTime: appointmentDate.toISOString(),
+            startTime: `${data.date}T${data.time}:00`,
             endTime: endDate.toISOString(),
-            location: meetingUrl || "Not specified", // Use the meeting URL which might contain Google Meet link
+            location: meetingUrl || "Not specified",
             description: data.description || "",
-            addedAt: new Date().toISOString(), // Include the timestamp when participant was added
-            useNodemailer: true, // Flag to use Nodemailer instead of Resend
+            addedAt: new Date().toISOString(),
+            useNodemailer: true,
           }),
         });
 
@@ -635,20 +594,20 @@ export default function NewAppointmentPage() {
 
                     {availabilityChecked && (
                       <div className="mt-3 text-sm">
-                          {hasConflicts ? (
-                            <div className="flex items-center text-amber-600">
-                              <AlertCircle size={16} className="mr-2" />
-                              <span>
-                                Conflicts detected. You can still create the
-                                appointment if needed.
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center text-green-600">
-                              <CheckCircle size={16} className="mr-2" />
-                              <span>
-                                All participants are available at this time!
-                              </span>
+                        {hasConflicts ? (
+                          <div className="flex items-center text-amber-600">
+                            <AlertCircle size={16} className="mr-2" />
+                            <span>
+                              Conflicts detected. You can still create the
+                              appointment if needed.
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-green-600">
+                            <CheckCircle size={16} className="mr-2" />
+                            <span>
+                              All participants are available at this time!
+                            </span>
                           </div>
                         )}
                       </div>
