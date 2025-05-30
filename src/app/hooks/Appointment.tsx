@@ -24,6 +24,8 @@ export interface Appointment {
     status?: "upcoming" | "completed" | "canceled";
     created_at?: string;
     user_id?: string;
+    duration_minutes?: number;
+    [key: string]: any; // Allow for other metadata properties
   };
 }
 

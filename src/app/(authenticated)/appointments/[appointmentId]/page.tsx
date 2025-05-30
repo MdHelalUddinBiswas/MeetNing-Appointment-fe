@@ -39,6 +39,10 @@ type Appointment = {
   status: "upcoming" | "completed" | "canceled" | "pending";
   created_at?: string;
   user_id?: number;
+  raw_metadata?: {
+    duration_minutes?: number;
+    [key: string]: any;
+  };
 };
 
 export default function AppointmentDetailsPage() {
@@ -367,6 +371,8 @@ export default function AppointmentDetailsPage() {
 
   // Format appointment date and times
   const startDateTime = new Date(appointment?.start_time);
+  const endDateTime = new Date(appointment?.end_time);
+
   const formattedDate = startDateTime.toLocaleDateString(undefined, {
     weekday: "long",
     year: "numeric",
@@ -379,9 +385,28 @@ export default function AppointmentDetailsPage() {
     minute: "2-digit",
   });
 
-  const startTime = new Date(appointment.start_time).getTime();
-  const endTime = new Date(appointment.end_time).getTime();
-  const durationMinutes = Math.round((endTime - startTime) / (1000 * 60));
+  // Calculate duration in minutes, ensuring it's a positive value
+  // This handles potential timezone issues or incorrectly stored dates
+  let durationMinutes;
+
+  // try {
+  //   // Check if dates are valid
+  //   if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+  //     // If dates are invalid, fallback to the metadata duration if available
+  //     durationMinutes = appointment.raw_metadata?.duration_minutes || 30;
+  //   } else {
+  //     // Calculate the absolute difference to ensure a positive value
+  //     durationMinutes = Math.abs(Math.round((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60)));
+
+  //     // If duration is too large (over 24 hours) or too small (under 1 minute), use a default
+  //     if (durationMinutes > 24 * 60 || durationMinutes < 1) {
+  //       durationMinutes = 30; // Default to 30 minutes
+  //     }
+  //   }
+  // } catch (error) {
+  //   console.error("Error calculating duration:", error);
+  //   durationMinutes = 30; // Default fallback
+  // }
 
   return (
     <div className="space-y-6 mt-4">
@@ -501,7 +526,31 @@ export default function AppointmentDetailsPage() {
                 Time
               </dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {formattedTime} ({durationMinutes} minutes)
+                {formattedTime}
+                <span>
+                  {" "}
+                  (
+                  {(() => {
+                    // Calculate duration from timestamps
+                    const startTime = new Date(
+                      appointment.start_time
+                    ).getTime();
+                    const endTime = new Date(appointment.end_time).getTime();
+                    const durationMs = endTime - startTime;
+
+                    // Check if duration seems unreasonable (>5 hours or negative)
+                    if (
+                      Math.abs(durationMs) > 5 * 60 * 60 * 1000 ||
+                      durationMs < 0
+                    ) {
+                      // For unreasonable durations, fall back to a default value
+                      return 30;
+                    }
+
+                    return Math.round(durationMs / 60000);
+                  })()}{" "}
+                  minutes)
+                </span>
               </dd>
             </div>
             <div className="sm:col-span-1">

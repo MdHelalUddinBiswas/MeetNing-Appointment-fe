@@ -45,6 +45,7 @@ export interface Appointment {
     status?: "upcoming" | "completed" | "canceled";
     created_at?: string;
     user_id?: string;
+    [key: string]: any; // Allow for other metadata properties
   };
 }
 
@@ -239,11 +240,27 @@ export default function AppointmentsClient({
                         </span>
                         <Clock className="flex-shrink-0 mx-1.5 h-4 w-4 text-gray-400" />
                         <span>
-                          {Math.round(
-                            (new Date(appointment.end_time).getTime() -
-                              new Date(appointment.start_time).getTime()) /
-                              60000
-                          )}{" "}
+                          {(() => {
+                            // Calculate duration from timestamps
+                            const startTime = new Date(
+                              appointment.start_time
+                            ).getTime();
+                            const endTime = new Date(
+                              appointment.end_time
+                            ).getTime();
+                            const durationMs = endTime - startTime;
+
+                            // Check if duration seems unreasonable (>5 hours or negative)
+                            if (
+                              Math.abs(durationMs) > 5 * 60 * 60 * 1000 ||
+                              durationMs < 0
+                            ) {
+                              // For unreasonable durations, fall back to a default value
+                              return 30;
+                            }
+
+                            return Math.round(durationMs / 60000);
+                          })()}{" "}
                           minutes
                         </span>
                       </div>
