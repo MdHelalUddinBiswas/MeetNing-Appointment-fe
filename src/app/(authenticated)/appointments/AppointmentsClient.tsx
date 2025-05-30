@@ -197,7 +197,7 @@ export default function AppointmentsClient({
                 Completed
               </button>
               <button
-                onClick={() => setActiveFilter("canceled")}
+                onClick={() => setActiveFilter("cancelled")}
                 className={`px-3 py-1 text-sm ${
                   activeFilter === "canceled"
                     ? "bg-blue-100 text-blue-700"
@@ -303,13 +303,6 @@ export default function AppointmentsClient({
                 ? `You don't have any ${activeFilter} appointments.`
                 : "Get started by creating a new appointment."}
             </p>
-            <div className="mt-6">
-              <Link href="/appointments/new">
-                <Button variant="outline" className="flex items-center gap-2">
-                  <PlusCircle className="h-4 w-4" /> New Appointment
-                </Button>
-              </Link>
-            </div>
           </div>
         )}
       </div>
