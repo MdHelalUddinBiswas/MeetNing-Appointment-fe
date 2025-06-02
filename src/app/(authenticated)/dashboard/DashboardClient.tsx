@@ -126,7 +126,9 @@ export default function DashboardClient({
                         </p>
                         <p className="ml-6 flex items-center text-sm text-gray-500">
                           <Clock className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                          {appointment.duration} mins
+                          {appointment.duration >= 60 
+                            ? `${Math.floor(appointment.duration/60)}h ${appointment.duration % 60}m` 
+                            : `${appointment.duration} mins`}
                         </p>
                       </div>
                     </div>

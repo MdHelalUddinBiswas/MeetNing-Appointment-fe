@@ -112,29 +112,28 @@ function processAppointments(
             : [];
         }
 
-        // Get duration from metadata or calculate it
-        let duration = 30; // Default fallback duration
+        let duration = 30;
 
-        // First try to get the stored duration from metadata
         if (apt.raw_metadata && "duration_minutes" in apt.raw_metadata) {
           duration = apt.raw_metadata.duration_minutes as number;
         } else {
-          // Otherwise calculate it from start and end times
-          const durationCalc = Math.round(
-            (endDate.getTime() - startDate.getTime()) / 60000
-          );
+          try {
+            const startMs = startDate.getTime();
+            const endMs = endDate.getTime();
+            const durationMs = endMs - startMs;
 
-          // Ensure duration is positive and reasonable
-          if (!isNaN(durationCalc)) {
-            duration = Math.abs(durationCalc);
-            // Set reasonable limits for calculated duration
-            if (duration > 24 * 60 || duration < 1) {
-              duration = 30; // Default to 30 minutes if unreasonable
+            if (!isNaN(durationMs) && durationMs > 0) {
+              duration = Math.round(durationMs / 60000);
+
+              if (duration < 1) {
+                duration = 30;
+              }
             }
+          } catch (e) {
+            console.error("Error calculating duration:", e);
           }
         }
 
-        // Valid appointment - convert to dashboard format
         return {
           id: apt.id,
           title: apt.raw_metadata?.title || apt.title,
@@ -161,7 +160,7 @@ function processAppointments(
 export default async function DashboardPage() {
   const { appointments, error } = await getAppointments();
   const upcomingAppointments = processAppointments(appointments);
-
+  console.log("upcomingAppointments", upcomingAppointments);
   return (
     <DashboardClient
       upcomingAppointments={upcomingAppointments}

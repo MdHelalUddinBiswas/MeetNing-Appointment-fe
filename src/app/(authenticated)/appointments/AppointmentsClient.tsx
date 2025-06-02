@@ -92,7 +92,7 @@ export default function AppointmentsClient({
   const [localAppointments, setLocalAppointments] =
     useState<Appointment[]>(appointments);
   const [loading, setLoading] = useState(false);
-
+  console.log("localAppointments", appointments);
   const filteredAppointments = useMemo(
     () => filterAppointments(localAppointments, searchQuery, activeFilter),
     [localAppointments, searchQuery, activeFilter]
@@ -241,27 +241,40 @@ export default function AppointmentsClient({
                         <Clock className="flex-shrink-0 mx-1.5 h-4 w-4 text-gray-400" />
                         <span>
                           {(() => {
-                            // Calculate duration from timestamps
-                            const startTime = new Date(
-                              appointment.start_time
-                            ).getTime();
-                            const endTime = new Date(
-                              appointment.end_time
-                            ).getTime();
-                            const durationMs = endTime - startTime;
-
-                            // Check if duration seems unreasonable (>5 hours or negative)
-                            if (
-                              Math.abs(durationMs) > 5 * 60 * 60 * 1000 ||
-                              durationMs < 0
-                            ) {
-                              // For unreasonable durations, fall back to a default value
-                              return 30;
+                            // Try to get duration from metadata first if available
+                            if (appointment.raw_metadata?.duration_minutes) {
+                              const duration = appointment.raw_metadata.duration_minutes as number;
+                              // Format as hours and minutes for durations >= 60 minutes
+                              if (duration >= 60) {
+                                return `${Math.floor(duration/60)}h ${duration % 60}m`;
+                              } else {
+                                return `${duration} mins`;
+                              }
                             }
-
-                            return Math.round(durationMs / 60000);
-                          })()}{" "}
-                          minutes
+                            
+                            // Fall back to calculating from timestamps
+                            try {
+                              // Use ISO strings for consistent parsing regardless of locale
+                              const startTime = new Date(appointment.start_time).getTime();
+                              const endTime = new Date(appointment.end_time).getTime();
+                              const durationMs = endTime - startTime;
+                              
+                              if (isNaN(durationMs) || durationMs < 0) {
+                                return "30 mins"; // Default for invalid times
+                              }
+                              
+                              const durationMinutes = Math.round(durationMs / 60000);
+                              
+                              // Format as hours and minutes for durations >= 60 minutes
+                              if (durationMinutes >= 60) {
+                                return `${Math.floor(durationMinutes/60)}h ${durationMinutes % 60}m`;
+                              } else {
+                                return `${durationMinutes} mins`;
+                              }
+                            } catch (e) {
+                              return "30 mins"; // Default if parsing fails
+                            }
+                          })()}
                         </span>
                       </div>
                       <div className="mt-2 flex items-center text-sm text-gray-500">

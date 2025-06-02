@@ -11,6 +11,8 @@ import {
   FileText,
   Edit,
   Trash2,
+  AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import AvailabilityChecker from "@/components/AvailabilityChecker";
 
 type Appointment = {
   id: string | number;
@@ -55,6 +58,9 @@ export default function AppointmentDetailsPage() {
   const [newParticipantEmail, setNewParticipantEmail] = useState("");
   const [newParticipantName, setNewParticipantName] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
+  const [hasConflicts, setHasConflicts] = useState(false);
+  const [conflicts, setConflicts] = useState<any[]>([]);
   const token = localStorage.getItem("token");
 
   const fetchAppointment = async () => {
@@ -125,6 +131,12 @@ export default function AppointmentDetailsPage() {
   useEffect(() => {
     fetchAppointment();
   }, [appointmentId]);
+
+  const handleAvailabilityChecked = (hasConflicts: boolean, conflicts: any[]) => {
+    setAvailabilityChecked(true);
+    setHasConflicts(hasConflicts);
+    setConflicts(conflicts);
+  };
 
   const handleAddParticipant = async () => {
     if (!newParticipantEmail) {
@@ -614,7 +626,10 @@ export default function AppointmentDetailsPage() {
                       id="email"
                       type="email"
                       value={newParticipantEmail}
-                      onChange={(e) => setNewParticipantEmail(e.target.value)}
+                      onChange={(e) => {
+                        setNewParticipantEmail(e.target.value);
+                        setAvailabilityChecked(false);
+                      }}
                       placeholder="participant@example.com"
                       className="col-span-3"
                       required
@@ -632,6 +647,41 @@ export default function AppointmentDetailsPage() {
                       className="col-span-3"
                     />
                   </div>
+                  
+                  {/* Add Availability Checker */}
+                  {newParticipantEmail && appointment && (
+                    <div className="col-span-4 border rounded-md p-4 bg-gray-50 mt-2">
+                      <h3 className="text-sm font-medium mb-3">
+                        Check Participant Availability
+                      </h3>
+                      <AvailabilityChecker
+                        participantEmails={newParticipantEmail}
+                        startTime={new Date(appointment.start_time)}
+                        endTime={new Date(appointment.end_time)}
+                        onAvailabilityChecked={handleAvailabilityChecked}
+                      />
+                      
+                      {availabilityChecked && (
+                        <div className="mt-3 text-sm">
+                          {hasConflicts ? (
+                            <div className="flex items-center text-amber-600">
+                              <AlertCircle size={16} className="mr-2" />
+                              <span>
+                                Conflicts detected. You can still add the participant if needed.
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center text-green-600">
+                              <CheckCircle size={16} className="mr-2" />
+                              <span>
+                                This participant is available at this time!
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button
