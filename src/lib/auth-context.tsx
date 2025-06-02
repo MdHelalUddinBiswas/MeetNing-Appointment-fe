@@ -56,6 +56,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = Cookies.get("token") || localStorage.getItem("token");
         const googleToken = localStorage.getItem("googleAccessToken");
 
+        // Get current path to check if we need to redirect
+        const currentPath = window.location.pathname;
+        const isAuthPage =
+          currentPath === "/" ||
+          currentPath.startsWith("/auth") ||
+          currentPath === "/login" ||
+          currentPath === "/signup";
+
         if (token || googleToken) {
           try {
             const response = await fetch(
@@ -72,9 +80,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (response.status === 200) {
               const userData = await response.json();
               setUser(userData);
+
+              // If user is on the root page or an auth page, redirect to dashboard
+              if (isAuthPage) {
+                console.log("User authenticated, redirecting to dashboard");
+                router.push("/dashboard");
+              }
             } else if (response.status === 401) {
               console.log("Auth token expired or invalid");
               localStorage.removeItem("token");
+              Cookies.remove("token");
             } else {
               // Some other server error - don't clear token, might be temporary
               console.error(
@@ -83,11 +98,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               );
 
               setUser({ id: "cached", email: "cached" } as User);
+
+              // Even with cached data, redirect to dashboard if on auth pages
+              if (isAuthPage) {
+                console.log("User has cached auth, redirecting to dashboard");
+                router.push("/dashboard");
+              }
             }
           } catch (err) {
             console.error("Auth check network error:", err);
 
             setUser({ id: "cached", email: "cached" } as User);
+
+            // Even with network error, redirect to dashboard if we have cached auth
+            if (isAuthPage) {
+              console.log(
+                "User has cached auth despite network error, redirecting to dashboard"
+              );
+              router.push("/dashboard");
+            }
           }
         }
       } catch (err) {
@@ -98,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     checkAuth();
-  }, []);
+  }, [router]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -126,9 +155,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Store token in both localStorage and cookies
       localStorage.setItem("token", data.token);
-      Cookies.set("token", data.token, { 
+      Cookies.set("token", data.token, {
         expires: 7, // expires in 7 days
-        path: '/' 
+        path: "/",
       });
 
       // Update user state

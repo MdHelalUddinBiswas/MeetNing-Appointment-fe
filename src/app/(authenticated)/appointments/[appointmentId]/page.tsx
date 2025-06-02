@@ -371,7 +371,6 @@ export default function AppointmentDetailsPage() {
 
   // Format appointment date and times
   const startDateTime = new Date(appointment?.start_time);
-  const endDateTime = new Date(appointment?.end_time);
 
   const formattedDate = startDateTime.toLocaleDateString(undefined, {
     weekday: "long",
@@ -384,29 +383,6 @@ export default function AppointmentDetailsPage() {
     hour: "2-digit",
     minute: "2-digit",
   });
-
-  // Calculate duration in minutes, ensuring it's a positive value
-  // This handles potential timezone issues or incorrectly stored dates
-  let durationMinutes;
-
-  // try {
-  //   // Check if dates are valid
-  //   if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
-  //     // If dates are invalid, fallback to the metadata duration if available
-  //     durationMinutes = appointment.raw_metadata?.duration_minutes || 30;
-  //   } else {
-  //     // Calculate the absolute difference to ensure a positive value
-  //     durationMinutes = Math.abs(Math.round((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60)));
-
-  //     // If duration is too large (over 24 hours) or too small (under 1 minute), use a default
-  //     if (durationMinutes > 24 * 60 || durationMinutes < 1) {
-  //       durationMinutes = 30; // Default to 30 minutes
-  //     }
-  //   }
-  // } catch (error) {
-  //   console.error("Error calculating duration:", error);
-  //   durationMinutes = 30; // Default fallback
-  // }
 
   return (
     <div className="space-y-6 mt-4">
@@ -446,7 +422,7 @@ export default function AppointmentDetailsPage() {
                 <Button
                   variant="destructive"
                   className="flex items-center gap-2"
-                  onClick={() => setDeleteConfirmOpen(true)}
+                  onClick={() => setDeleteConfirmOpen(true)} 
                 >
                   <Trash2 className="h-4 w-4" />
                   Cancel
