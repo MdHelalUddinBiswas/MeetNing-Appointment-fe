@@ -11,7 +11,6 @@ async function fetchAppointments(token: string | null): Promise<Appointment[]> {
           "Content-Type": "application/json",
           "x-auth-token": token || "",
         },
-        cache: "no-store",
       }
     );
     if (!res.ok) return [];

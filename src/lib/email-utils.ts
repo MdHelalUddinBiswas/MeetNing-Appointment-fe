@@ -75,6 +75,7 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
     addedAt 
   } = options;
 
+
   // Format the added time nicely
   const formattedAddedTime = addedAt ? new Date(addedAt).toLocaleString() : 'Just now';
   
@@ -180,7 +181,7 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
   `;
 
   const mailOptions = {
-    from: `"MeetNing" <${process.env.EMAIL_USER || "noreply@meetning.app"}>`,
+    from: `"MeetNing" <${process.env.EMAIL_USER}||"helal@nexstack.sg">`,
     to: to, // In dev, send to ourselves
     subject: subject,
     html: htmlContent,

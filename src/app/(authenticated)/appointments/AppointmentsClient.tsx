@@ -224,7 +224,7 @@ export default function AppointmentsClient({
                       className="block hover:bg-gray-50"
                     >
                       <p className="text-sm font-medium text-blue-600">
-                        {appointment.title}
+                        {appointment?.title}
                       </p>
                       <div className="mt-2 flex items-center text-sm text-gray-500">
                         <Calendar className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />

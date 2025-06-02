@@ -77,7 +77,6 @@ export default function NewAppointmentPage() {
   const [googleAuth, setGoogleAuth] = useState<GoogleAuthResponse | null>(null);
   const [isCreatingMeet, setIsCreatingMeet] = useState(false);
   const [hasConflicts, setHasConflicts] = useState(false);
-  const [conflictData, setConflictData] = useState<any[]>([]);
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
 
   // Dialog state
@@ -164,7 +163,6 @@ export default function NewAppointmentPage() {
     conflicts: any[]
   ) => {
     setHasConflicts(hasScheduleConflicts);
-    setConflictData(conflicts);
     setAvailabilityChecked(true);
 
     if (hasScheduleConflicts) {
@@ -274,6 +272,7 @@ export default function NewAppointmentPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            from: "Helal@gmail.com",
             to: participantsArray,
             subject: `You've been added to "${data.title}" appointment`,
             appointmentTitle: data.title,
