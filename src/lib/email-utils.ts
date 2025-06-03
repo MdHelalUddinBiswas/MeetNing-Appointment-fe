@@ -145,7 +145,7 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
             <p>You have been added to the following appointment:</p>
             <div class="appointment-details">
               <p><strong>Title:</strong> ${appointmentTitle}</p>
-              <p><strong>When:</strong> ${new Date(startTime).toLocaleString()} ${timezone}</p>
+              <p><strong>When:</strong> ${new Date(startTime).toLocaleString('en-US', { timeZone: timezone })} (${timezone})</p>
               <p><strong>Duration:</strong> ${durationMinutes} minutes</p>
               <p><strong>Location:</strong> ${location}</p>
               ${description ? `<p><strong>Description:</strong> ${description}</p>` : ''}
