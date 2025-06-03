@@ -196,11 +196,15 @@ export default function NewAppointmentPage() {
         }
       }
 
-      // Calculate end time based on duration
-      const startDateTime = new Date(`${data.date}T${data.time}`);
-      const endDateTime = new Date(
-        startDateTime.getTime() + parseInt(data.duration) * 60 * 1000
-      );
+      // Parse form data
+      const [hours, minutes] = data.time.split(":").map(Number);
+      const startDateTime = new Date(data.date);
+      startDateTime.setHours(hours, minutes, 0, 0);
+      
+      // Calculate end time
+      const endDateTime = new Date(startDateTime);
+      const durationInMinutes = parseInt(data.duration, 10);
+      endDateTime.setMinutes(endDateTime.getMinutes() + durationInMinutes);
 
       // Process participants into an array
       const participantsArray = data.participants
@@ -220,12 +224,12 @@ export default function NewAppointmentPage() {
 
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-      // Prepare appointment data
+      // Create appointment data
       const appointmentPayload: AppointmentPayload = {
         userId: user?.id,
         title: data.title,
         description: data.description || "",
-        start_time: `${data.date}T${data.time}:00`,
+        start_time: new Date(`${data.date}T${data.time}`).toISOString(), // Convert to ISO format
         end_time: endDateTime.toISOString(),
         location: meetingUrl || "",
         participants: participantsArray,
@@ -256,14 +260,14 @@ export default function NewAppointmentPage() {
       try {
         console.log("Sending email notification to:", participantsArray);
 
-        // Create proper date and time objects for the email
-        const appointmentDate = new Date(data.date);
+        // Parse form data
         const [hours, minutes] = data.time.split(":").map(Number);
-        appointmentDate.setHours(hours, minutes, 0, 0);
+        const startDate = new Date(data.date);
+        startDate.setHours(hours, minutes, 0, 0);
 
-        // Calculate end time based on duration
-        const endDate = new Date(appointmentDate);
+        // Calculate end time
         const durationInMinutes = parseInt(data.duration, 10);
+        const endDate = new Date(startDate);
         endDate.setMinutes(endDate.getMinutes() + durationInMinutes);
 
         const emailResponse = await fetch("/api/send-email", {
@@ -276,7 +280,7 @@ export default function NewAppointmentPage() {
             to: participantsArray,
             subject: `You've been added to "${data.title}" appointment`,
             appointmentTitle: data.title,
-            startTime: `${data.date}T${data.time}:00`,
+            startTime: startDate.toISOString(), // Using ISO format for start time
             endTime: endDate.toISOString(),
             location: meetingUrl || "Not specified",
             description: data.description || "",
