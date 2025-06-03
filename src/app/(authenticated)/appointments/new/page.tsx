@@ -60,8 +60,6 @@ const appointmentFormSchema = z.object({
 });
 
 type AppointmentFormValues = z.infer<typeof appointmentFormSchema>;
-
-// Define the type for Google auth token response for better type safety
 interface GoogleAuthResponse {
   access_token: string;
   expires_in?: number;
@@ -71,15 +69,10 @@ export default function NewAppointmentPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [useSuggestions, setUseSuggestions] = useState(false);
-  const [suggestedTimes, setSuggestedTimes] = useState<string[]>([]);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [googleAuth, setGoogleAuth] = useState<GoogleAuthResponse | null>(null);
   const [isCreatingMeet, setIsCreatingMeet] = useState(false);
   const [hasConflicts, setHasConflicts] = useState(false);
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
-
-  // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTitle, setDialogTitle] = useState("");
   const [dialogMessage, setDialogMessage] = useState("");
@@ -98,52 +91,6 @@ export default function NewAppointmentPage() {
     },
   });
 
-  // Get form field values
-  const date = form.watch("date");
-  const participants = form.watch("participants");
-  const duration = form.watch("duration");
-
-  // Show dialog helper function
-  const showDialog = (title: string, message: string) => {
-    setDialogTitle(title);
-    setDialogMessage(message);
-    setDialogOpen(true);
-  };
-
-  // Function to suggest available times based on participants' calendars
-  const suggestAvailableTimes = async () => {
-    if (!date || !participants || !duration) {
-      showDialog(
-        "Missing Information",
-        "Please enter a date, participants, and duration to get suggested times."
-      );
-      return;
-    }
-
-    setSuggestionsLoading(true);
-
-    try {
-      // TODO: Replace this with actual calendar API integration
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Placeholder times - to be replaced with actual available times from API
-      const times = ["09:00", "11:30", "14:00", "16:30"];
-      setSuggestedTimes(times);
-      setUseSuggestions(true);
-    } catch (error) {
-      console.error("Error fetching suggested times:", error);
-      showDialog("Error", "Could not fetch suggested times. Please try again.");
-    } finally {
-      setSuggestionsLoading(false);
-    }
-  };
-
-  // Select a suggested time
-  const selectSuggestedTime = (time: string) => {
-    form.setValue("time", time);
-  };
-
-  // Define the appointment payload type outside the function for reusability
   interface AppointmentPayload {
     title: string;
     description: string;
@@ -184,7 +131,6 @@ export default function NewAppointmentPage() {
         return;
       }
 
-      // If conflicts were detected, show a confirmation dialog
       if (hasConflicts && availabilityChecked) {
         const proceed = window.confirm(
           "There are scheduling conflicts with some participants. Do you still want to proceed with creating this appointment?"
@@ -200,7 +146,7 @@ export default function NewAppointmentPage() {
       const [hours, minutes] = data.time.split(":").map(Number);
       const startDateTime = new Date(data.date);
       startDateTime.setHours(hours, minutes, 0, 0);
-      
+
       // Calculate end time
       const endDateTime = new Date(startDateTime);
       const durationInMinutes = parseInt(data.duration, 10);
@@ -221,10 +167,8 @@ export default function NewAppointmentPage() {
       ) {
         meetingUrl = data.location;
       }
-
-      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-      // Create appointment data
+      const userTimezone = user?.timezone;
+      const Timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const appointmentPayload: AppointmentPayload = {
         userId: user?.id,
         title: data.title,
@@ -234,7 +178,7 @@ export default function NewAppointmentPage() {
         location: meetingUrl || "",
         participants: participantsArray,
         status: "upcoming",
-        timezone: userTimezone,
+        timezone: Timezone,
       };
 
       const response = await fetch(
@@ -280,12 +224,13 @@ export default function NewAppointmentPage() {
             to: participantsArray,
             subject: `You've been added to "${data.title}" appointment`,
             appointmentTitle: data.title,
-            startTime: startDate.toISOString(), // Using ISO format for start time
+            startTime: startDate.toISOString(),
             endTime: endDate.toISOString(),
             location: meetingUrl || "Not specified",
             description: data.description || "",
             addedAt: new Date().toISOString(),
             useNodemailer: true,
+            timezone: userTimezone,
           }),
         });
 
@@ -379,7 +324,6 @@ export default function NewAppointmentPage() {
       const startTime = startDateTime.toISOString();
       const endTime = endDateTime.toISOString();
 
-      // Get participants emails (optional for Meet creation)
       let attendees: { email: string }[] = [];
       const participantsValue = form.getValues("participants");
       if (participantsValue) {
@@ -390,8 +334,6 @@ export default function NewAppointmentPage() {
           .map((email) => ({ email }));
       }
 
-      // Create the meeting
-      // We'll use our backend API to create the meeting
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/meetings/create-google-meet`,
         {
@@ -617,45 +559,6 @@ export default function NewAppointmentPage() {
                     )}
                   </div>
                 )}
-
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex items-center gap-2 mb-4"
-                  onClick={suggestAvailableTimes}
-                  disabled={suggestionsLoading}
-                >
-                  <BrainCircuit className="h-4 w-4" />
-                  {suggestionsLoading
-                    ? "Finding available times..."
-                    : "Find available times"}
-                </Button>
-
-                {useSuggestions && suggestedTimes.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">
-                      Suggested times:
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {suggestedTimes.map((time) => (
-                        <button
-                          key={time}
-                          type="button"
-                          className={`px-3 py-1 text-sm rounded-full ${
-                            form.getValues("time") === time
-                              ? "bg-blue-500 text-white"
-                              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                          }`}
-                          onClick={() => selectSuggestedTime(time)}
-                        >
-                          {time}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
 
               <FormField
                 control={form.control}

@@ -52,15 +52,17 @@ type AppointmentFormValues = z.infer<typeof appointmentFormSchema>;
 
 // Define the type for appointment
 interface Appointment {
-  id: string;
-  title: string;
-  start_time: string;
-  end_time: string;
-  description: string;
-  location: string;
-  participants: any[];
-  status: string;
-  user_id?: string | number;
+  data: {
+    id: string;
+    title: string;
+    start_time: string;
+    end_time: string;
+    description: string;
+    location: string;
+    participants: any[];
+    status: string;
+    user_id?: string | number;
+  };
 }
 
 export default function EditAppointmentPage() {
@@ -77,7 +79,7 @@ export default function EditAppointmentPage() {
 
   // Add direct form state for controlled inputs
   const [formValues, setFormValues] = useState({
-    title: "",
+    title: appointment?.data?.title || "",
     date: "",
     time: "",
     duration: "30",
@@ -90,7 +92,7 @@ export default function EditAppointmentPage() {
   const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentFormSchema),
     defaultValues: {
-      title: "",
+      title: appointment?.data?.title || "",
       date: "",
       time: "",
       duration: "30",
@@ -131,42 +133,51 @@ export default function EditAppointmentPage() {
               : `Failed to fetch appointment details: ${response.status}`
           );
         }
-        const data = await response.json();
-        setAppointment(data);
+        const responseData = await response.json();
+        console.log("API Response:", responseData);
+
+        // Store full response in state
+        setAppointment(responseData);
+
+        // Extract the actual appointment data from the nested structure
+        const data = responseData.data || responseData;
+        console.log("Using data:", data);
 
         // Extract title directly
         const title = data.title || "";
-        
+
         // Parse start and end times
         const start = new Date(data.start_time || new Date());
         const end = new Date(data.end_time || new Date());
-        
+
         // Calculate duration
-        const durationInMinutes = Math.round((end.getTime() - start.getTime()) / 60000) || 30;
-        
+        const durationInMinutes =
+          Math.round((end.getTime() - start.getTime()) / 60000) || 30;
+
         // Format date as YYYY-MM-DD
         const datePart = start.toISOString().split("T")[0];
-        
+
         // Format time as HH:MM
         const hours = start.getHours().toString().padStart(2, "0");
         const minutes = start.getMinutes().toString().padStart(2, "0");
         const timePart = `${hours}:${minutes}`;
-        
+
         // Process participants - handle any format
         let participantsString = "";
         try {
           if (data.participants) {
             // Handle nested arrays
-            const flattenedParticipants = Array.isArray(data.participants[0]) 
-              ? data.participants.flat() 
+            const flattenedParticipants = Array.isArray(data.participants[0])
+              ? data.participants.flat()
               : data.participants;
-            
+
             // Extract emails from any format
             participantsString = flattenedParticipants
               .filter(Boolean)
               .map((p: any) => {
                 if (typeof p === "string") return p;
-                if (p && typeof p === "object") return p.email || p.name || String(p);
+                if (p && typeof p === "object")
+                  return p.email || p.name || String(p);
                 return String(p);
               })
               .filter(Boolean)
@@ -188,21 +199,36 @@ export default function EditAppointmentPage() {
           description: data.description || "",
         };
 
+        console.log("Setting form values:", newFormValues);
+
         // Apply values to both states
         setFormValues(newFormValues);
-        
-        // Apply values to form in multiple ways to ensure they appear
-        form.reset(newFormValues);
-        
-        // Force-set field values
-        Object.keys(newFormValues).forEach((key) => {
-          const fieldKey = key as keyof AppointmentFormValues;
-          form.setValue(fieldKey, newFormValues[fieldKey] as any);
-        });
-        
-        // Ensure component renders with values before removing loading state
-        setTimeout(() => setIsLoading(false), 200);
+
+        // Clear form first to ensure React properly resets internal state
+        form.reset();
+
+        // Wait a small amount of time to ensure the reset takes effect
+        setTimeout(() => {
+          // Apply values to form
+          form.reset(newFormValues);
+
+          // Force-set field values to ensure they appear
+          Object.keys(newFormValues).forEach((key) => {
+            const fieldKey = key as keyof AppointmentFormValues;
+            form.setValue(fieldKey, newFormValues[fieldKey], {
+              shouldValidate: false,
+              shouldDirty: false,
+              shouldTouch: false,
+            });
+          });
+
+          console.log("Form values after setting:", form.getValues());
+
+          // Remove loading state
+          setIsLoading(false);
+        }, 50);
       } catch (error) {
+        console.error("Error fetching appointment:", error);
         showDialog("Error", "Failed to load appointment details.");
         setIsLoading(false);
       }
@@ -216,21 +242,17 @@ export default function EditAppointmentPage() {
     setIsSubmitting(true);
 
     try {
-      // Parse form data
       const [hours, minutes] = data.time.split(":").map(Number);
       const startDate = new Date(data.date);
       startDate.setHours(hours, minutes, 0, 0);
-
-      // Calculate end time
       const durationInMinutes = parseInt(data.duration, 10);
       const endDate = new Date(startDate);
       endDate.setMinutes(endDate.getMinutes() + durationInMinutes);
 
-      // Format participants as an array of emails
       const participantsList = data.participants
         .split(",")
         .map((email) => email.trim())
-        .filter((email) => email); // Remove empty entries
+        .filter((email) => email);
 
       // Prepare update payload
       const updatePayload = {
@@ -240,15 +262,12 @@ export default function EditAppointmentPage() {
         end_time: endDate.toISOString(),
         location: data.location || "",
         participants: participantsList,
-        // Keep existing status and user_id
-        status: appointment?.status || "upcoming",
-        user_id: appointment?.user_id,
+        status: appointment?.data?.status || "upcoming",
+        user_id: appointment?.data?.user_id,
       };
 
-      // Get auth token
       const token = localStorage.getItem("token");
 
-      // Make API call to update appointment
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}`,
         {
@@ -306,7 +325,7 @@ export default function EditAppointmentPage() {
       </div>
     );
   }
-
+  console.log(appointment?.data.title);
   // Only render the form when not loading
   return (
     <div className="container py-6">

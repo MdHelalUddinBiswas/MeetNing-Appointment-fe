@@ -50,6 +50,7 @@ type Appointment = {
 };
 
 export default function AppointmentDetailsPage() {
+  const { user } = useAuth(); // Move useAuth hook to the top level
   const params = useParams();
   const appointmentId = params.appointmentId as string;
   const [appointment, setAppointment] = useState<Appointment | null>(null);
@@ -61,8 +62,8 @@ export default function AppointmentDetailsPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
   const [hasConflicts, setHasConflicts] = useState(false);
-  const [conflicts, setConflicts] = useState<any[]>([]);
   const token = localStorage.getItem("token");
+  const userTimezone = user?.timezone || undefined; // Extract timezone once
 
   const fetchAppointment = async () => {
     setLoading(true);
@@ -75,9 +76,6 @@ export default function AppointmentDetailsPage() {
         return;
       }
 
-      console.log("Fetching appointment with ID:", appointmentId);
-      console.log("Using token:", token ? "[TOKEN EXISTS]" : "[NO TOKEN]");
-
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
         {
@@ -89,9 +87,7 @@ export default function AppointmentDetailsPage() {
         }
       );
 
-      // Check if response is OK before trying to parse JSON
       if (!response.ok) {
-        // Handle different HTTP error codes
         if (response.status === 401 || response.status === 403) {
           throw new Error("Authentication error. Please login again.");
         } else if (response.status === 404) {
@@ -133,10 +129,9 @@ export default function AppointmentDetailsPage() {
     fetchAppointment();
   }, [appointmentId]);
 
-  const handleAvailabilityChecked = (hasConflicts: boolean, conflicts: any[]) => {
+  const handleAvailabilityChecked = (hasConflicts: boolean) => {
     setAvailabilityChecked(true);
     setHasConflicts(hasConflicts);
-    setConflicts(conflicts);
   };
 
   const handleAddParticipant = async () => {
@@ -177,8 +172,6 @@ export default function AppointmentDetailsPage() {
         console.log("Participant added successfully");
 
         try {
-          console.log("Sending email notification to:", newParticipantEmail);
-
           const emailResponse = await fetch("/api/send-email", {
             method: "POST",
             headers: {
@@ -192,8 +185,8 @@ export default function AppointmentDetailsPage() {
               endTime: appointment?.end_time || "",
               location: appointment?.location || "Not specified",
               description: appointment?.description || "",
-              addedAt: newParticipant.added_at, // Include the timestamp when participant was added
-              useNodemailer: true, // Flag to use Nodemailer instead of Resend
+              addedAt: newParticipant.added_at,
+              useNodemailer: true,
             }),
           });
 
@@ -384,8 +377,6 @@ export default function AppointmentDetailsPage() {
 
   // Format appointment date and times using user's timezone
   const startDateTime = new Date(appointment?.start_time);
-  const { user } = useAuth();
-  const userTimezone = user?.timezone || undefined;
 
   // Format date with user's timezone preference
   const formattedDate = startDateTime.toLocaleDateString(undefined, {
@@ -393,14 +384,14 @@ export default function AppointmentDetailsPage() {
     year: "numeric",
     month: "long",
     day: "numeric",
-    timeZone: userTimezone
+    timeZone: userTimezone,
   });
 
   // Format time with user's timezone preference
   const formattedTime = startDateTime.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: userTimezone
+    timeZone: userTimezone,
   });
 
   return (
@@ -441,7 +432,7 @@ export default function AppointmentDetailsPage() {
                 <Button
                   variant="destructive"
                   className="flex items-center gap-2"
-                  onClick={() => setDeleteConfirmOpen(true)} 
+                  onClick={() => setDeleteConfirmOpen(true)}
                 >
                   <Trash2 className="h-4 w-4" />
                   Cancel
@@ -654,7 +645,7 @@ export default function AppointmentDetailsPage() {
                       className="col-span-3"
                     />
                   </div>
-                  
+
                   {/* Add Availability Checker */}
                   {newParticipantEmail && appointment && (
                     <div className="col-span-4 border rounded-md p-4 bg-gray-50 mt-2">
@@ -667,14 +658,15 @@ export default function AppointmentDetailsPage() {
                         endTime={new Date(appointment.end_time)}
                         onAvailabilityChecked={handleAvailabilityChecked}
                       />
-                      
+
                       {availabilityChecked && (
                         <div className="mt-3 text-sm">
                           {hasConflicts ? (
                             <div className="flex items-center text-amber-600">
                               <AlertCircle size={16} className="mr-2" />
                               <span>
-                                Conflicts detected. You can still add the participant if needed.
+                                Conflicts detected. You can still add the
+                                participant if needed.
                               </span>
                             </div>
                           ) : (

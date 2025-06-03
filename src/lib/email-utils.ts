@@ -61,6 +61,7 @@ interface AppointmentEmailOptions {
   location?: string;
   description?: string;
   addedAt?: string;
+  timezone?: string;
 }
 
 export const sendAppointmentInvitation = async (options: AppointmentEmailOptions) => {
@@ -72,7 +73,8 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
     endTime, 
     location = "Not specified", 
     description = "",
-    addedAt 
+    addedAt,
+    timezone
   } = options;
 
 
@@ -143,7 +145,7 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
             <p>You have been added to the following appointment:</p>
             <div class="appointment-details">
               <p><strong>Title:</strong> ${appointmentTitle}</p>
-              <p><strong>When:</strong> ${new Date(startTime).toLocaleString()}</p>
+              <p><strong>When:</strong> ${new Date(startTime).toLocaleString()} ${timezone}</p>
               <p><strong>Duration:</strong> ${durationMinutes} minutes</p>
               <p><strong>Location:</strong> ${location}</p>
               ${description ? `<p><strong>Description:</strong> ${description}</p>` : ''}

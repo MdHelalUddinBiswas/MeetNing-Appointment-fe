@@ -7,8 +7,8 @@ const EXCLUDED_AUDIENCE_ID = 'a2ed616b-38ea-40ac-b216-c6c169d03410';
 
 export async function POST(request: Request) {
   try {
-    const { to, subject, appointmentTitle, startTime, endTime, location, description, addedAt } = await request.json();
-    console.log('Email request:', { to, subject, appointmentTitle, startTime, location, addedAt });
+    const { to, subject, appointmentTitle, startTime, endTime, location, description, addedAt, timezone } = await request.json();
+    console.log('Email request:', { to, subject, appointmentTitle, startTime, location, addedAt, timezone });
     
     // Skip sending email if the recipient's email contains the excluded audience ID
     if (to && to.includes(EXCLUDED_AUDIENCE_ID)) {
@@ -25,7 +25,8 @@ export async function POST(request: Request) {
       endTime,
       location,
       description,
-      addedAt
+      addedAt,
+      timezone
     });
     
     if (result.success) {
