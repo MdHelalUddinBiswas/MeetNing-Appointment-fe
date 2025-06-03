@@ -7,6 +7,8 @@ type Participant = string | { email: string } | { email?: string };
 type UpcomingAppointment = {
   id: string;
   title: string;
+  startTime: string; // ISO string for timezone support
+  endTime: string;   // ISO string for timezone support
   date: string;
   time: string;
   duration: number;
@@ -137,6 +139,10 @@ function processAppointments(
         return {
           id: apt.id,
           title: apt.raw_metadata?.title || apt.title,
+          // Pass ISO strings for proper timezone handling in client component
+          startTime: startDate.toISOString(),
+          endTime: endDate.toISOString(),
+          // Keep the old format for backwards compatibility
           date: startDate.toISOString().split("T")[0],
           time: startDate.toLocaleTimeString([], {
             hour: "2-digit",

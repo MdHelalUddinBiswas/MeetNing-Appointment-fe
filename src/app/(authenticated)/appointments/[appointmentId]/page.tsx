@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import AvailabilityChecker from "@/components/AvailabilityChecker";
+import { useAuth } from "@/lib/auth-context";
 
 type Appointment = {
   id: string | number;
@@ -381,19 +382,25 @@ export default function AppointmentDetailsPage() {
     );
   }
 
-  // Format appointment date and times
+  // Format appointment date and times using user's timezone
   const startDateTime = new Date(appointment?.start_time);
+  const { user } = useAuth();
+  const userTimezone = user?.timezone || undefined;
 
+  // Format date with user's timezone preference
   const formattedDate = startDateTime.toLocaleDateString(undefined, {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: userTimezone
   });
 
+  // Format time with user's timezone preference
   const formattedTime = startDateTime.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: userTimezone
   });
 
   return (

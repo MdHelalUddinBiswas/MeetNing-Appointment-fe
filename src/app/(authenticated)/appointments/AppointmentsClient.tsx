@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import{useAuth} from "@/lib/auth-context";
 
 export interface Appointment {
   id: string;
@@ -83,6 +84,7 @@ export default function AppointmentsClient({
   appointments,
   token,
 }: AppointmentsClientProps) {
+  const {user} = useAuth();
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -132,6 +134,7 @@ export default function AppointmentsClient({
       setLoading(false);
     }
   };
+  console.log(user);
 
   return (
     <div className="space-y-6 mt-4">
@@ -229,14 +232,31 @@ export default function AppointmentsClient({
                       <div className="mt-2 flex items-center text-sm text-gray-500">
                         <Calendar className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
                         <span>
-                          {new Date(
-                            appointment.start_time
-                          ).toLocaleDateString()}{" "}
-                          |{" "}
-                          {new Date(appointment.start_time).toLocaleTimeString(
-                            [],
-                            { hour: "2-digit", minute: "2-digit" }
-                          )}
+                          {(() => {
+                            // Format date using the user's timezone if available
+                            const startDate = new Date(appointment.start_time);
+                            const userTimezone = user?.timezone || undefined;
+                            
+                            try {
+                              const dateStr = startDate.toLocaleDateString(undefined, {
+                                timeZone: userTimezone,
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              });
+                              
+                              const timeStr = startDate.toLocaleTimeString(undefined, {
+                                timeZone: userTimezone,
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              });
+                              
+                              return `${dateStr} | ${timeStr}`;
+                            } catch (e) {
+                              // Fallback if timezone is not supported
+                              return `${startDate.toLocaleDateString()} | ${startDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                            }
+                          })()}
                         </span>
                         <Clock className="flex-shrink-0 mx-1.5 h-4 w-4 text-gray-400" />
                         <span>
@@ -254,10 +274,13 @@ export default function AppointmentsClient({
                             
                             // Fall back to calculating from timestamps
                             try {
-                              // Use ISO strings for consistent parsing regardless of locale
-                              const startTime = new Date(appointment.start_time).getTime();
-                              const endTime = new Date(appointment.end_time).getTime();
-                              const durationMs = endTime - startTime;
+                              // Use the user's timezone if available
+                              const userTimezone = user?.timezone || 'UTC';
+                              
+                              // Parse dates with the user's timezone
+                              const startTime = new Date(appointment.start_time);
+                              const endTime = new Date(appointment.end_time);
+                              const durationMs = endTime.getTime() - startTime.getTime();
                               
                               if (isNaN(durationMs) || durationMs < 0) {
                                 return "30 mins"; // Default for invalid times
