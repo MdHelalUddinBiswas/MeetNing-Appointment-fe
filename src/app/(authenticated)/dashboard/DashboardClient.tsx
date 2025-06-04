@@ -8,8 +8,8 @@ import { useAuth } from "@/lib/auth-context";
 type UpcomingAppointment = {
   id: string;
   title: string;
-  startTime: string; // ISO string for timezone support
-  endTime: string;   // ISO string for timezone support
+  startTime: string;
+  endTime: string;
   date: string;
   time: string;
   duration: number;
@@ -127,32 +127,42 @@ export default function DashboardClient({
                             // Format date using the user's timezone if available
                             const startDate = new Date(appointment.startTime);
                             const userTimezone = user?.timezone || undefined;
-                            
+
                             try {
-                              const dateStr = startDate.toLocaleDateString(undefined, {
-                                timeZone: userTimezone,
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              });
-                              
-                              const timeStr = startDate.toLocaleTimeString(undefined, {
-                                timeZone: userTimezone,
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              });
-                              
+                              const dateStr = startDate.toLocaleDateString(
+                                undefined,
+                                {
+                                  timeZone: userTimezone,
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              );
+
+                              const timeStr = startDate.toLocaleTimeString(
+                                undefined,
+                                {
+                                  timeZone: userTimezone,
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              );
+
                               return `${dateStr} | ${timeStr}`;
                             } catch (e) {
                               // Fallback if timezone is not supported
-                              return `${new Date(appointment.date).toLocaleDateString()} | ${appointment.time}`;
+                              return `${new Date(
+                                appointment.date
+                              ).toLocaleDateString()} | ${appointment.time}`;
                             }
                           })()}
                         </p>
                         <p className="ml-6 flex items-center text-sm text-gray-500">
                           <Clock className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                          {appointment.duration >= 60 
-                            ? `${Math.floor(appointment.duration/60)}h ${appointment.duration % 60}m` 
+                          {appointment.duration >= 60
+                            ? `${Math.floor(appointment.duration / 60)}h ${
+                                appointment.duration % 60
+                              }m`
                             : `${appointment.duration} mins`}
                         </p>
                       </div>

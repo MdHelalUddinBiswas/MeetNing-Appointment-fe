@@ -1,9 +1,17 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Calendar, Clock, Users, BrainCircuit, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function Home() {
+  const cookieStore = await cookies();
+  const tokenCookie = cookieStore.get("token");
+
+  if (tokenCookie) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-blue-50">
       {/* Header/Navigation */}

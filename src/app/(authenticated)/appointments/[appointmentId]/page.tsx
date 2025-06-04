@@ -50,7 +50,7 @@ type Appointment = {
 };
 
 export default function AppointmentDetailsPage() {
-  const { user } = useAuth(); // Move useAuth hook to the top level
+  const { user } = useAuth();
   const params = useParams();
   const appointmentId = params.appointmentId as string;
   const [appointment, setAppointment] = useState<Appointment | null>(null);
@@ -63,8 +63,7 @@ export default function AppointmentDetailsPage() {
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
   const [hasConflicts, setHasConflicts] = useState(false);
   const token = localStorage.getItem("token");
-  const userTimezone = user?.timezone || undefined; // Extract timezone once
-
+  const userTimezone = user?.timezone || undefined;
   const fetchAppointment = async () => {
     setLoading(true);
     try {
@@ -187,6 +186,7 @@ export default function AppointmentDetailsPage() {
               description: appointment?.description || "",
               addedAt: newParticipant.added_at,
               useNodemailer: true,
+              timezone: userTimezone,
             }),
           });
 

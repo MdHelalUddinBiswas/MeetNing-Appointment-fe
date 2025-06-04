@@ -1,14 +1,13 @@
 import { cookies } from "next/headers";
 import DashboardClient from "./DashboardClient";
 
-// Define types
 type Participant = string | { email: string } | { email?: string };
 
 type UpcomingAppointment = {
   id: string;
   title: string;
-  startTime: string; // ISO string for timezone support
-  endTime: string;   // ISO string for timezone support
+  startTime: string;
+  endTime: string;
   date: string;
   time: string;
   duration: number;
@@ -60,7 +59,6 @@ async function getAppointments() {
     }
 
     const data = await response.json();
-
     const appointments = data?.data || [];
 
     return { appointments, error: null };
@@ -166,11 +164,11 @@ function processAppointments(
 export default async function DashboardPage() {
   const { appointments, error } = await getAppointments();
   const upcomingAppointments = processAppointments(appointments);
-  console.log("upcomingAppointments", upcomingAppointments);
+
   return (
     <DashboardClient
       upcomingAppointments={upcomingAppointments}
-      appointmentsCount={appointments.length}
+      appointmentsCount={appointments?.length}
     />
   );
 }
