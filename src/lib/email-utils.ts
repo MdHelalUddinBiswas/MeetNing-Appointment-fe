@@ -121,7 +121,7 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
             ${description ? `<p>We'll be discussing: ${description}</p>` : ''}
             
             <div class="appointment-details">
-              <p><strong>When:</strong> ${formattedStartTime} (${timezone})</p>
+              <p><strong>Date & Time:</strong> ${formattedStartTime} (${timezone})</p>
               <p><strong>Duration:</strong> ${durationMinutes} minutes</p>
               <p><strong>Location:</strong> ${location}</p>
             </div>
@@ -149,7 +149,7 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
     ${description ? `We'll be discussing: ${description}\n` : ''}
     
     Here are the details:
-    - When: ${formattedStartTime} (${timezone})
+    - Date & Time: ${formattedStartTime} (${timezone})
     - Duration: ${durationMinutes} minutes
     - Location: ${location}
 
