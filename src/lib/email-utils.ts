@@ -54,6 +54,7 @@ if (!hasSmtpCredentials) {
 
 interface AppointmentEmailOptions {
   to: string;
+  fromName: string; // Added sender's name for a personal touch
   subject: string;
   appointmentTitle: string;
   startTime: string;
@@ -67,6 +68,7 @@ interface AppointmentEmailOptions {
 export const sendAppointmentInvitation = async (options: AppointmentEmailOptions) => {
   const { 
     to, 
+    fromName,
     subject, 
     appointmentTitle, 
     startTime, 
@@ -77,84 +79,59 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
     timezone
   } = options;
 
-
-  // Format the added time nicely
-  const formattedAddedTime = addedAt ? new Date(addedAt).toLocaleString() : 'Just now';
-  
   // Calculate duration in minutes
   const durationMinutes = startTime && endTime ? 
     Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000) : 
     60; // Default to 60 minutes if not specified
 
-  // Create email HTML content with a more professional design
+  // Format start time for readability
+  const formattedStartTime = new Date(startTime).toLocaleString('en-US', { 
+    timeZone: timezone,
+    dateStyle: 'full',
+    timeStyle: 'short'
+  });
+
+  // Create email HTML content with a more personal and modern design
   const htmlContent = `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
-        <title>Appointment Invitation</title>
+        <title>${subject}</title>
         <style>
-          body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-          }
-          .container {
-            padding: 20px;
-            border: 1px solid #e0e0e0;
-            border-radius: 5px;
-          }
-          .header {
-            text-align: center;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #e0e0e0;
-          }
-          .content {
-            padding: 20px 0;
-          }
-          .appointment-details {
-            background-color: #f5f5f5;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-          }
-          .footer {
-            font-size: 12px;
-            color: #888;
-            text-align: center;
-            padding-top: 20px;
-            border-top: 1px solid #e0e0e0;
-          }
-          .added-time {
-            font-size: 12px;
-            color: #666;
-            font-style: italic;
-            margin-top: 15px;
-          }
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
+          .container { padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #f9f9f9; }
+          .header { text-align: center; padding-bottom: 15px; }
+          .header h2 { font-size: 24px; color: #222; margin: 0; }
+          .content { padding: 10px 0; }
+          .content p { margin: 0 0 15px; }
+          .appointment-details { background-color: #ffffff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; margin: 20px 0; }
+          .footer { font-size: 12px; color: #888; text-align: center; padding-top: 20px; border-top: 1px solid #e0e0e0; margin-top: 20px; }
+          .closing { margin-top: 20px; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h2>You've Been Added to an Appointment</h2>
+            <h2>${appointmentTitle}</h2>
           </div>
           <div class="content">
-            <p>Hello,</p>
-            <p>You have been added to the following appointment:</p>
+            <p>Hi there,</p>
+            <p>I hope you're doing well. I’d like to invite you to join me for the event above.</p>
+            ${description ? `<p>We'll be discussing: ${description}</p>` : ''}
+            
             <div class="appointment-details">
-              <p><strong>Title:</strong> ${appointmentTitle}</p>
-              <p><strong>When:</strong> ${new Date(startTime).toLocaleString('en-US', { timeZone: timezone })} (${timezone})</p>
+              <p><strong>When:</strong> ${formattedStartTime} (${timezone})</p>
               <p><strong>Duration:</strong> ${durationMinutes} minutes</p>
               <p><strong>Location:</strong> ${location}</p>
-              ${description ? `<p><strong>Description:</strong> ${description}</p>` : ''}
             </div>
-            <p>You can view the appointment details in your MeetNing dashboard.</p>
-            <p class="added-time">You were added to this appointment on ${formattedAddedTime}</p>
+
+            <p class="closing">Please let me know if you can make it. Looking forward to connecting!</p>
+            <p>Best regards,<br>${fromName}</p>
           </div>
           <div class="footer">
             <p>&copy; ${new Date().getFullYear()} MeetNing. All rights reserved.</p>
+            <p>This invitation was sent by ${fromName} via MeetNing.</p>
           </div>
         </div>
       </body>
@@ -163,28 +140,32 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
 
   // Add plain text version for better deliverability
   const textContent = `
-    You've Been Added to an Appointment
+    Subject: ${subject}
+
+    Hi there,
+
+    I hope you're doing well. I’d like to invite you to join me for "${appointmentTitle}".
+
+    ${description ? `We'll be discussing: ${description}\n` : ''}
     
-    Hello,
-    
-    You have been added to the following appointment:
-    
-    Title: ${appointmentTitle}
-    When: ${new Date(startTime).toLocaleString()}
-    Duration: ${durationMinutes} minutes
-    Location: ${location}
-    ${description ? `Description: ${description}` : ''}
-    
-    You can view the appointment details in your MeetNing dashboard.
-    
-    You were added to this appointment on ${formattedAddedTime}
-    
+    Here are the details:
+    - When: ${formattedStartTime} (${timezone})
+    - Duration: ${durationMinutes} minutes
+    - Location: ${location}
+
+    Please let me know if you can make it. Looking forward to connecting!
+
+    Best regards,
+    ${fromName}
+
+    ---
     © ${new Date().getFullYear()} MeetNing. All rights reserved.
+    This invitation was sent by ${fromName} via MeetNing.
   `;
 
   const mailOptions = {
-    from: `"MeetNing" <${process.env.EMAIL_USER}||"helal@nexstack.sg">`,
-    to: to, // In dev, send to ourselves
+    from: `"${fromName} via MeetNing" <${process.env.EMAIL_USER || "helal@nexstack.sg"}>`,
+    to: to,
     subject: subject,
     html: htmlContent,
     text: textContent,
@@ -193,14 +174,12 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
   try {
     console.log(`🔄 Attempting to send appointment invitation email to ${to}...`);
     
-    // Test SMTP connection before sending if using real transport
     if (hasSmtpCredentials) {
       try {
         await transporter.verify();
         console.log("✅ SMTP connection verified successfully");
       } catch (verifyError) {
         console.error("❌ SMTP connection verification failed:", verifyError);
-        // Continue anyway to see the specific sending error
       }
     }
 
@@ -209,12 +188,12 @@ export const sendAppointmentInvitation = async (options: AppointmentEmailOptions
     return { success: true, data: info };
   } catch (error: any) {
     console.error("❌ Error sending appointment invitation email:", error);
-    // Log detailed error information
     if (error.code) console.error(`Error code: ${error.code}`);
     if (error.command) console.error(`Failed command: ${error.command}`);
     if (error.response) console.error(`Server response: ${error.response}`);
     return { success: false, error: error.message };
   }
+
 };
 
 export default transporter;

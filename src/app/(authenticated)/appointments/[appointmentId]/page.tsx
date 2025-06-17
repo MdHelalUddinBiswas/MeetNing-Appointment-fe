@@ -226,6 +226,10 @@ export default function AppointmentDetailsPage() {
   };
 
   const handleAddParticipant = async () => {
+    if (!state.appointment) {
+      dispatch({ type: "SET_ERROR", payload: "Appointment data is not available." });
+      return;
+    }
     if (!newParticipantEmail) {
       dispatch({ type: "SET_ERROR", payload: "Email is required" });
       return;
@@ -274,7 +278,8 @@ export default function AppointmentDetailsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: newParticipantEmail,
-          subject: `You've been added to "${appointment?.title}" appointment`,
+          fromName: user?.name || "A colleague",
+          subject: `Invitation: ${state.appointment.title}`,
           appointmentTitle: appointment?.title,
           startTime: appointment?.start_time || "",
           endTime: appointment?.end_time || "",

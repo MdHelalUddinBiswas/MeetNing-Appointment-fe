@@ -220,8 +220,9 @@ export default function NewAppointmentPage() {
           },
           body: JSON.stringify({
             from: "Helal@gmail.com",
+            fromName: user?.name || "A colleague",
             to: participantsArray,
-            subject: `You've been added to "${data.title}" appointment`,
+            subject: `Invitation: ${data.title}`,
             appointmentTitle: data.title,
             startTime: startDate.toISOString(),
             endTime: endDate.toISOString(),
