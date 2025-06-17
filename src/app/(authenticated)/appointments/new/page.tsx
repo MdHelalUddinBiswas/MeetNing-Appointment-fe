@@ -10,7 +10,6 @@ import {
   Calendar,
   Clock,
   Users,
-  BrainCircuit,
   Link as LinkIcon,
   AlertCircle,
   CheckCircle,

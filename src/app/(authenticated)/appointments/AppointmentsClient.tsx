@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import{useAuth} from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 
 export interface Appointment {
   id: string;
@@ -42,7 +42,7 @@ export interface Appointment {
     description?: string;
     location?: string;
     role?: string;
-    participants: string[];
+    participants: { email: string; name?: string }[];
     status?: "upcoming" | "completed" | "canceled";
     created_at?: string;
     user_id?: string;
@@ -68,7 +68,7 @@ const filterAppointments = (
     filtered = filtered.filter((appointment) => {
       const searchableText = [
         appointment.title,
-        appointment.description,
+        (appointment.raw_metadata?.participants ?? []).map((p) => p.email).join(" "),
         appointment.location,
       ]
         .filter(Boolean)
@@ -84,7 +84,7 @@ export default function AppointmentsClient({
   appointments,
   token,
 }: AppointmentsClientProps) {
-  const {user} = useAuth();
+  const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -94,7 +94,7 @@ export default function AppointmentsClient({
   const [localAppointments, setLocalAppointments] =
     useState<Appointment[]>(appointments);
   const [loading, setLoading] = useState(false);
-  console.log("localAppointments", appointments);
+
   const filteredAppointments = useMemo(
     () => filterAppointments(localAppointments, searchQuery, activeFilter),
     [localAppointments, searchQuery, activeFilter]
@@ -134,7 +134,6 @@ export default function AppointmentsClient({
       setLoading(false);
     }
   };
-  console.log(user);
 
   return (
     <div className="space-y-6 mt-4">
@@ -156,7 +155,7 @@ export default function AppointmentsClient({
       {/* Search and filters */}
       <div className="bg-white p-4 rounded-lg shadow">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full sm:w-2/6">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search appointments..."
@@ -236,25 +235,34 @@ export default function AppointmentsClient({
                             // Format date using the user's timezone if available
                             const startDate = new Date(appointment.start_time);
                             const userTimezone = user?.timezone || undefined;
-                            
+
                             try {
-                              const dateStr = startDate.toLocaleDateString(undefined, {
-                                timeZone: userTimezone,
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              });
-                              
-                              const timeStr = startDate.toLocaleTimeString(undefined, {
-                                timeZone: userTimezone,
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              });
-                              
+                              const dateStr = startDate.toLocaleDateString(
+                                undefined,
+                                {
+                                  timeZone: userTimezone,
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              );
+
+                              const timeStr = startDate.toLocaleTimeString(
+                                undefined,
+                                {
+                                  timeZone: userTimezone,
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              );
+
                               return `${dateStr} | ${timeStr}`;
                             } catch (e) {
                               // Fallback if timezone is not supported
-                              return `${startDate.toLocaleDateString()} | ${startDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                              return `${startDate.toLocaleDateString()} | ${startDate.toLocaleTimeString(
+                                [],
+                                { hour: "2-digit", minute: "2-digit" }
+                              )}`;
                             }
                           })()}
                         </span>
@@ -263,34 +271,44 @@ export default function AppointmentsClient({
                           {(() => {
                             // Try to get duration from metadata first if available
                             if (appointment.raw_metadata?.duration_minutes) {
-                              const duration = appointment.raw_metadata.duration_minutes as number;
+                              const duration = appointment.raw_metadata
+                                .duration_minutes as number;
                               // Format as hours and minutes for durations >= 60 minutes
                               if (duration >= 60) {
-                                return `${Math.floor(duration/60)}h ${duration % 60}m`;
+                                return `${Math.floor(duration / 60)}h ${
+                                  duration % 60
+                                }m`;
                               } else {
                                 return `${duration} mins`;
                               }
                             }
-                            
+
                             // Fall back to calculating from timestamps
                             try {
                               // Use the user's timezone if available
-                              const userTimezone = user?.timezone || 'UTC';
-                              
+                              const userTimezone = user?.timezone || "UTC";
+
                               // Parse dates with the user's timezone
-                              const startTime = new Date(appointment.start_time);
+                              const startTime = new Date(
+                                appointment.start_time
+                              );
                               const endTime = new Date(appointment.end_time);
-                              const durationMs = endTime.getTime() - startTime.getTime();
-                              
+                              const durationMs =
+                                endTime.getTime() - startTime.getTime();
+
                               if (isNaN(durationMs) || durationMs < 0) {
                                 return "30 mins"; // Default for invalid times
                               }
-                              
-                              const durationMinutes = Math.round(durationMs / 60000);
-                              
+
+                              const durationMinutes = Math.round(
+                                durationMs / 60000
+                              );
+
                               // Format as hours and minutes for durations >= 60 minutes
                               if (durationMinutes >= 60) {
-                                return `${Math.floor(durationMinutes/60)}h ${durationMinutes % 60}m`;
+                                return `${Math.floor(durationMinutes / 60)}h ${
+                                  durationMinutes % 60
+                                }m`;
                               } else {
                                 return `${durationMinutes} mins`;
                               }

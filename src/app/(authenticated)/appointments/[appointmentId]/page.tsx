@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useReducer } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -29,127 +29,209 @@ import { Label } from "@/components/ui/label";
 import AvailabilityChecker from "@/components/AvailabilityChecker";
 import { useAuth } from "@/lib/auth-context";
 
+// --- Types --- //
 type Appointment = {
   id: string | number;
   title: string;
   start_time: string;
   end_time: string;
-  participants: any;
-  email: string;
-  participantsJson: string;
+  participants: { email: string; name?: string }[];
   location: string;
   role: string;
   description: string;
   status: "upcoming" | "completed" | "canceled" | "pending";
   created_at?: string;
   user_id?: number;
-  raw_metadata?: {
-    duration_minutes?: number;
-    [key: string]: any;
-  };
 };
 
+interface State {
+  appointment: Appointment | null;
+  loading: boolean;
+  error: string | null;
+  dialogOpen: boolean;
+  newParticipantEmail: string;
+  newParticipantName: string;
+  deleteConfirmOpen: boolean;
+  availabilityChecked: boolean;
+  hasConflicts: boolean;
+}
+
+type Action =
+  | { type: "FETCH_INIT" }
+  | { type: "FETCH_SUCCESS"; payload: Appointment }
+  | { type: "FETCH_FAILURE"; payload: string }
+  | { type: "SET_APPOINTMENT"; payload: Appointment }
+  | { type: "SET_STATUS"; payload: Appointment["status"] }
+  | { type: "TOGGLE_PARTICIPANT_DIALOG"; payload: boolean }
+  | {
+      type: "SET_PARTICIPANT_FIELD";
+      payload: { field: "email" | "name"; value: string };
+    }
+  | { type: "TOGGLE_DELETE_CONFIRM"; payload: boolean }
+  | { type: "SET_AVAILABILITY_CHECKED"; payload: { hasConflicts: boolean } }
+  | { type: "RESET_PARTICIPANT_FORM" }
+  | { type: "SET_ERROR"; payload: string | null };
+
+// --- Initial State --- //
+const initialState: State = {
+  appointment: null,
+  loading: true,
+  error: null,
+  dialogOpen: false,
+  newParticipantEmail: "",
+  newParticipantName: "",
+  deleteConfirmOpen: false,
+  availabilityChecked: false,
+  hasConflicts: false,
+};
+
+// --- Reducer --- //
+function appointmentReducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "FETCH_INIT":
+      return { ...state, loading: true, error: null };
+    case "FETCH_SUCCESS":
+      return {
+        ...state,
+        loading: false,
+        appointment: action.payload,
+        error: null,
+      };
+    case "FETCH_FAILURE":
+      return { ...state, loading: false, error: action.payload };
+    case "SET_APPOINTMENT":
+      return { ...state, appointment: action.payload };
+    case "SET_STATUS":
+      if (!state.appointment) return state;
+      return {
+        ...state,
+        appointment: { ...state.appointment, status: action.payload },
+      };
+    case "TOGGLE_PARTICIPANT_DIALOG":
+      return { ...state, dialogOpen: action.payload };
+    case "SET_PARTICIPANT_FIELD":
+      return {
+        ...state,
+        newParticipantEmail:
+          action.payload.field === "email"
+            ? action.payload.value
+            : state.newParticipantEmail,
+        newParticipantName:
+          action.payload.field === "name"
+            ? action.payload.value
+            : state.newParticipantName,
+        availabilityChecked:
+          action.payload.field === "email" ? false : state.availabilityChecked,
+      };
+    case "TOGGLE_DELETE_CONFIRM":
+      return { ...state, deleteConfirmOpen: action.payload };
+    case "SET_AVAILABILITY_CHECKED":
+      return {
+        ...state,
+        availabilityChecked: true,
+        hasConflicts: action.payload.hasConflicts,
+      };
+    case "RESET_PARTICIPANT_FORM":
+      return {
+        ...state,
+        newParticipantEmail: "",
+        newParticipantName: "",
+        availabilityChecked: false,
+        hasConflicts: false,
+        dialogOpen: false,
+      };
+    case "SET_ERROR":
+      return { ...state, error: action.payload };
+    default:
+      return state;
+  }
+}
+
+// --- Component --- //
 export default function AppointmentDetailsPage() {
   const { user } = useAuth();
   const params = useParams();
   const appointmentId = params.appointmentId as string;
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newParticipantEmail, setNewParticipantEmail] = useState("");
-  const [newParticipantName, setNewParticipantName] = useState("");
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
-  const [availabilityChecked, setAvailabilityChecked] = useState(false);
-  const [hasConflicts, setHasConflicts] = useState(false);
-  const token = localStorage.getItem("token");
+  const [state, dispatch] = useReducer(appointmentReducer, initialState);
+  const {
+    appointment,
+    loading,
+    error,
+    dialogOpen,
+    newParticipantEmail,
+    newParticipantName,
+    deleteConfirmOpen,
+    availabilityChecked,
+    hasConflicts,
+  } = state;
+
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const userTimezone = user?.timezone || undefined;
-  const fetchAppointment = async () => {
-    setLoading(true);
-    try {
-      // Check if token exists
-      if (!token) {
-        console.error("No authentication token found");
-        setError("Authentication required. Please login again.");
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "x-auth-token": token,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          throw new Error("Authentication error. Please login again.");
-        } else if (response.status === 404) {
-          throw new Error("Appointment not found.");
-        } else {
-          throw new Error(`Server error: ${response.status}`);
-        }
-      }
-
-      // Try to parse the JSON response
-      let responseJson;
-      try {
-        responseJson = await response.json();
-        console.log("Fetched appointment:", responseJson);
-      } catch (parseError) {
-        console.error("Failed to parse response as JSON:", parseError);
-        throw new Error("Invalid server response. Please try again later.");
-      }
-
-      // Check if the response has the expected data structure
-      if (!responseJson.data) {
-        throw new Error("Invalid response format. Missing appointment data.");
-      }
-
-      setAppointment(responseJson.data);
-    } catch (err) {
-      console.error("Error fetching appointment:", err);
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "Failed to load appointment details. Please try again.";
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    fetchAppointment();
-  }, [appointmentId]);
+    const fetchAppointment = async () => {
+      dispatch({ type: "FETCH_INIT" });
+      try {
+        if (!token) {
+          throw new Error("Authentication required. Please login again.");
+        }
 
-  const handleAvailabilityChecked = (hasConflicts: boolean) => {
-    setAvailabilityChecked(true);
-    setHasConflicts(hasConflicts);
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "x-auth-token": token,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            throw new Error("Authentication error. Please login again.");
+          } else if (response.status === 404) {
+            throw new Error("Appointment not found.");
+          } else {
+            throw new Error(`Server error: ${response.status}`);
+          }
+        }
+
+        const responseJson = await response.json();
+        if (!responseJson.data) {
+          throw new Error("Invalid response format. Missing appointment data.");
+        }
+
+        dispatch({ type: "FETCH_SUCCESS", payload: responseJson.data });
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to load appointment details. Please try again.";
+        dispatch({ type: "FETCH_FAILURE", payload: errorMessage });
+      }
+    };
+
+    if (appointmentId) {
+      fetchAppointment();
+    }
+  }, [appointmentId, token]);
+
+  const handleAvailabilityChecked = (conflicts: boolean) => {
+    dispatch({
+      type: "SET_AVAILABILITY_CHECKED",
+      payload: { hasConflicts: conflicts },
+    });
   };
 
   const handleAddParticipant = async () => {
     if (!newParticipantEmail) {
-      setError("Email is required");
+      dispatch({ type: "SET_ERROR", payload: "Email is required" });
       return;
     }
 
     try {
-      const newParticipant = {
-        email: newParticipantEmail,
-        name: newParticipantName || undefined,
-        added_at: new Date().toISOString(), // Add timestamp when participant is added
-      };
-
-      const currentParticipants = appointment?.participants || [];
-
-      const updatedParticipants = [...currentParticipants, newParticipant];
-
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}/participants`,
         {
@@ -167,104 +249,76 @@ export default function AppointmentDetailsPage() {
 
       const data = await response.json();
 
-      if (response.ok) {
-        console.log("Participant added successfully");
-
-        try {
-          const emailResponse = await fetch("/api/send-email", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              to: newParticipantEmail, // Send to the newly added participant
-              subject: `You've been added to "${appointment?.title}" appointment`,
-              appointmentTitle: appointment?.title,
-              startTime: appointment?.start_time || "",
-              endTime: appointment?.end_time || "",
-              location: appointment?.location || "Not specified",
-              description: appointment?.description || "",
-              addedAt: newParticipant.added_at,
-              useNodemailer: true,
-              timezone: userTimezone,
-            }),
-          });
-
-          if (!emailResponse.ok) {
-            throw new Error(
-              `Email API returned status: ${emailResponse.status}`
-            );
-          }
-
-          const emailResult = await emailResponse.json();
-          console.log("Email API response:", emailResult);
-
-          if (emailResult.success) {
-            console.log("Email notification sent successfully");
-          } else if (emailResult.skipped) {
-            console.log("Email notification skipped:", emailResult.message);
-          } else {
-            console.error("Email sending failed:", emailResult.error);
-          }
-        } catch (emailError) {
-          console.error("Error sending email notification:", emailError);
-          // Don't throw here to avoid breaking the participant addition flow
-        }
-        setAppointment({
-          ...appointment!,
-          participants: updatedParticipants,
-        });
-
-        setDialogOpen(false);
-
-        setNewParticipantEmail("");
-        setNewParticipantName("");
-      } else {
+      if (!response.ok) {
         throw new Error(data.message || "Failed to add participant");
       }
+
+      // Optimistically update UI
+      const newParticipant = {
+        email: newParticipantEmail,
+        name: newParticipantName,
+      };
+      const updatedParticipants = [
+        ...(appointment?.participants || []),
+        newParticipant,
+      ];
+      dispatch({
+        type: "SET_APPOINTMENT",
+        payload: { ...appointment!, participants: updatedParticipants },
+      });
+      dispatch({ type: "RESET_PARTICIPANT_FORM" });
+
+      // Send email notification in the background
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: newParticipantEmail,
+          subject: `You've been added to "${appointment?.title}" appointment`,
+          appointmentTitle: appointment?.title,
+          startTime: appointment?.start_time || "",
+          endTime: appointment?.end_time || "",
+          location: appointment?.location || "Not specified",
+          description: appointment?.description || "",
+          addedAt: new Date().toISOString(),
+          useNodemailer: true,
+          timezone: userTimezone,
+        }),
+      }).catch((emailError) =>
+        console.error("Error sending email notification:", emailError)
+      );
     } catch (error) {
-      console.error("Error adding participant:", error);
-      setError("Failed to add participant. Please try again.");
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to add participant. Please try again.";
+      dispatch({ type: "SET_ERROR", payload: errorMessage });
     }
   };
 
   const handleStatusChange = async (
     newStatus: "upcoming" | "completed" | "canceled"
   ) => {
+    if (!token || !appointment) {
+      dispatch({
+        type: "SET_ERROR",
+        payload: "Cannot update status: missing token or appointment data.",
+      });
+      return;
+    }
+
+    const originalStatus = appointment.status;
+    dispatch({ type: "SET_STATUS", payload: newStatus });
+    if (newStatus === "canceled") {
+      dispatch({ type: "TOGGLE_DELETE_CONFIRM", payload: false });
+    }
+
     try {
-      // Check if token exists
-      if (!token) {
-        setError("Authentication required. Please login again.");
-        return;
-      }
-
-      // Check if appointment exists
-      if (!appointment) {
-        setError("Cannot update: appointment details not loaded.");
-        return;
-      }
-
-      let endpoint = "";
-
-      // Use the specific endpoints for each status change
-      if (newStatus === "completed") {
-        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}/complete`;
-      } else if (newStatus === "canceled") {
-        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}/cancel`;
-      } else {
-        // For other status changes, use the general update endpoint
-        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}`;
-      }
-
-      console.log(`Changing appointment status to ${newStatus}`);
-
-      // Update the local state immediately for better UX
-      setAppointment({ ...appointment, status: newStatus });
-
-      // If cancelling, close dialog immediately for better UX
-      if (newStatus === "canceled") {
-        setDeleteConfirmOpen(false);
-      }
+      const endpoint = {
+        completed: `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}/complete`,
+        canceled: `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}/cancel`,
+        upcoming: `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}`,
+      }[newStatus];
 
       const response = await fetch(endpoint, {
         method: "PUT",
@@ -272,44 +326,29 @@ export default function AppointmentDetailsPage() {
           "Content-Type": "application/json",
           "x-auth-token": token,
         },
-        body: JSON.stringify({
-          status: newStatus,
-        }),
+        body: JSON.stringify({ status: newStatus }),
       });
 
-      // Check if response is OK before trying to parse JSON
       if (!response.ok) {
-        // Reset the appointment state if the server request failed
-        fetchAppointment();
-
-        // Handle different HTTP error codes
-        if (response.status === 401 || response.status === 403) {
-          throw new Error("Authentication error. Please login again.");
-        } else {
-          throw new Error(`Server error: ${response.status}`);
-        }
+        throw new Error(`Server error: ${response.status}`);
       }
 
-      let data;
-      try {
-        data = await response.json();
-        console.log("Status updated successfully:", data);
-      } catch (parseError) {
-        console.error("Failed to parse response as JSON:", parseError);
-        throw new Error("Invalid server response. Please try again later.");
-      }
-
-      // Refresh the appointment data after successful status change
-      fetchAppointment();
+      await response.json();
     } catch (error) {
+      // Revert optimistic update on failure
+      dispatch({ type: "SET_STATUS", payload: originalStatus });
       const errorMessage =
         error instanceof Error
           ? error.message
           : "Failed to update appointment status. Please try again.";
-      setError(`Failed to update appointment status. ${errorMessage}`);
+      dispatch({
+        type: "SET_ERROR",
+        payload: `Failed to update status. ${errorMessage}`,
+      });
     }
   };
 
+  // --- Render Logic --- //
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -375,10 +414,7 @@ export default function AppointmentDetailsPage() {
     );
   }
 
-  // Format appointment date and times using user's timezone
-  const startDateTime = new Date(appointment?.start_time);
-
-  // Format date with user's timezone preference
+  const startDateTime = new Date(appointment.start_time);
   const formattedDate = startDateTime.toLocaleDateString(undefined, {
     weekday: "long",
     year: "numeric",
@@ -386,13 +422,21 @@ export default function AppointmentDetailsPage() {
     day: "numeric",
     timeZone: userTimezone,
   });
-
-  // Format time with user's timezone preference
   const formattedTime = startDateTime.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: userTimezone,
   });
+
+  const getDuration = () => {
+    const startTime = new Date(appointment.start_time).getTime();
+    const endTime = new Date(appointment.end_time).getTime();
+    const durationMs = endTime - startTime;
+    if (Math.abs(durationMs) > 5 * 60 * 60 * 1000 || durationMs < 0) {
+      return 30; // Fallback duration
+    }
+    return Math.round(durationMs / 60000);
+  };
 
   return (
     <div className="space-y-6 mt-4">
@@ -416,10 +460,10 @@ export default function AppointmentDetailsPage() {
             </span>
           </div>
           <p className="mt-1 text-sm text-gray-600">
-            {appointment?.description}
+            {appointment.description}
           </p>
         </div>
-        {appointment?.role === "owner" && (
+        {appointment.role === "owner" && (
           <div className="flex space-x-3">
             {appointment.status === "upcoming" && (
               <>
@@ -432,7 +476,9 @@ export default function AppointmentDetailsPage() {
                 <Button
                   variant="destructive"
                   className="flex items-center gap-2"
-                  onClick={() => setDeleteConfirmOpen(true)}
+                  onClick={() =>
+                    dispatch({ type: "TOGGLE_DELETE_CONFIRM", payload: true })
+                  }
                 >
                   <Trash2 className="h-4 w-4" />
                   Cancel
@@ -483,7 +529,9 @@ export default function AppointmentDetailsPage() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => setDeleteConfirmOpen(false)}
+              onClick={() =>
+                dispatch({ type: "TOGGLE_DELETE_CONFIRM", payload: false })
+              }
             >
               No, Keep Appointment
             </Button>
@@ -512,31 +560,7 @@ export default function AppointmentDetailsPage() {
                 Time
               </dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {formattedTime}
-                <span>
-                  {" "}
-                  (
-                  {(() => {
-                    // Calculate duration from timestamps
-                    const startTime = new Date(
-                      appointment.start_time
-                    ).getTime();
-                    const endTime = new Date(appointment.end_time).getTime();
-                    const durationMs = endTime - startTime;
-
-                    // Check if duration seems unreasonable (>5 hours or negative)
-                    if (
-                      Math.abs(durationMs) > 5 * 60 * 60 * 1000 ||
-                      durationMs < 0
-                    ) {
-                      // For unreasonable durations, fall back to a default value
-                      return 30;
-                    }
-
-                    return Math.round(durationMs / 60000);
-                  })()}{" "}
-                  minutes)
-                </span>
+                {formattedTime} ({getDuration()} minutes)
               </dd>
             </div>
             <div className="sm:col-span-1">
@@ -545,13 +569,11 @@ export default function AppointmentDetailsPage() {
                 Participants
               </dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {appointment?.participants?.length > 0 ? (
+                {appointment.participants?.length > 0 ? (
                   <ul className="list-disc pl-5 space-y-1">
-                    {appointment?.participants?.map(
-                      (participant: { email: string }, index: number) => (
-                        <li key={index}>{participant?.email}</li>
-                      )
-                    )}
+                    {appointment.participants.map((p, index) => (
+                      <li key={index}>{p.email}</li>
+                    ))}
                   </ul>
                 ) : (
                   <span className="text-gray-500">No participants</span>
@@ -564,21 +586,17 @@ export default function AppointmentDetailsPage() {
                 Location
               </dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {appointment.location ? (
-                  appointment.location.startsWith("http") ? (
-                    <a
-                      href={appointment.location}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      {appointment.location}
-                    </a>
-                  ) : (
-                    appointment.location
-                  )
+                {appointment.location?.startsWith("http") ? (
+                  <a
+                    href={appointment.location}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    {appointment.location}
+                  </a>
                 ) : (
-                  "Not specified"
+                  appointment.location || "Not specified"
                 )}
               </dd>
             </div>
@@ -601,9 +619,14 @@ export default function AppointmentDetailsPage() {
         <Link href="/appointments">
           <Button variant="outline">Back to Appointments</Button>
         </Link>
-        {appointment?.role === "owner" && appointment.status === "upcoming" && (
+        {appointment.role === "owner" && appointment.status === "upcoming" && (
           <div className="flex gap-2">
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog
+              open={dialogOpen}
+              onOpenChange={(isOpen) =>
+                dispatch({ type: "TOGGLE_PARTICIPANT_DIALOG", payload: isOpen })
+              }
+            >
               <DialogTrigger asChild>
                 <Button>Add Participant</Button>
               </DialogTrigger>
@@ -612,7 +635,7 @@ export default function AppointmentDetailsPage() {
                   <DialogTitle>Add New Participant</DialogTitle>
                   <DialogDescription>
                     Add a new participant to this appointment. They will receive
-                    notification about the meeting details.
+                    a notification.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -624,10 +647,12 @@ export default function AppointmentDetailsPage() {
                       id="email"
                       type="email"
                       value={newParticipantEmail}
-                      onChange={(e) => {
-                        setNewParticipantEmail(e.target.value);
-                        setAvailabilityChecked(false);
-                      }}
+                      onChange={(e) =>
+                        dispatch({
+                          type: "SET_PARTICIPANT_FIELD",
+                          payload: { field: "email", value: e.target.value },
+                        })
+                      }
                       placeholder="participant@example.com"
                       className="col-span-3"
                       required
@@ -640,14 +665,18 @@ export default function AppointmentDetailsPage() {
                     <Input
                       id="name"
                       value={newParticipantName}
-                      onChange={(e) => setNewParticipantName(e.target.value)}
+                      onChange={(e) =>
+                        dispatch({
+                          type: "SET_PARTICIPANT_FIELD",
+                          payload: { field: "name", value: e.target.value },
+                        })
+                      }
                       placeholder="Participant Name"
                       className="col-span-3"
                     />
                   </div>
 
-                  {/* Add Availability Checker */}
-                  {newParticipantEmail && appointment && (
+                  {newParticipantEmail && (
                     <div className="col-span-4 border rounded-md p-4 bg-gray-50 mt-2">
                       <h3 className="text-sm font-medium mb-3">
                         Check Participant Availability
@@ -658,7 +687,6 @@ export default function AppointmentDetailsPage() {
                         endTime={new Date(appointment.end_time)}
                         onAvailabilityChecked={handleAvailabilityChecked}
                       />
-
                       {availabilityChecked && (
                         <div className="mt-3 text-sm">
                           {hasConflicts ? (
@@ -666,15 +694,13 @@ export default function AppointmentDetailsPage() {
                               <AlertCircle size={16} className="mr-2" />
                               <span>
                                 Conflicts detected. You can still add the
-                                participant if needed.
+                                participant.
                               </span>
                             </div>
                           ) : (
                             <div className="flex items-center text-green-600">
                               <CheckCircle size={16} className="mr-2" />
-                              <span>
-                                This participant is available at this time!
-                              </span>
+                              <span>This participant is available!</span>
                             </div>
                           )}
                         </div>
@@ -685,7 +711,12 @@ export default function AppointmentDetailsPage() {
                 <DialogFooter>
                   <Button
                     variant="outline"
-                    onClick={() => setDialogOpen(false)}
+                    onClick={() =>
+                      dispatch({
+                        type: "TOGGLE_PARTICIPANT_DIALOG",
+                        payload: false,
+                      })
+                    }
                   >
                     Cancel
                   </Button>
