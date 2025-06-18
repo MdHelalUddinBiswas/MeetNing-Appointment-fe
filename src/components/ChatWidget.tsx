@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { X, Maximize2, Minimize2, Send, BotMessageSquare } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: "user" | "assistant";
@@ -136,15 +138,28 @@ export default function ChatWidget() {
                     }`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-lg p-3 ${
+                      className={`max-w-[80%] rounded-lg p-3 text-sm ${
                         message.role === "user"
                           ? "bg-blue-500 text-white"
-                          : "bg-gray-200 text-gray-800"
+                          : "bg-gray-100 text-gray-900"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap text-sm">
-                        {message.content}
-                      </p>
+                      {message.role === 'assistant' ? (
+                        <div className="prose prose-sm max-w-none prose-p:my-0 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />,
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap">
+                          {message.content}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
