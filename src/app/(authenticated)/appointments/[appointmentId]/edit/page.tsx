@@ -41,9 +41,14 @@ const appointmentFormSchema = z.object({
   duration: z.string().min(1, {
     message: "Please select a duration.",
   }),
-  participants: z.string().min(3, {
-    message: "Please add at least one participant email.",
-  }),
+  participants: z
+    .array(
+      z.object({
+        name: z.string().min(1, "Name cannot be empty."),
+        email: z.string().email("Invalid email address."),
+      })
+    )
+    .min(1, "At least one participant is required."),
   location: z.string().optional(),
   description: z.string().optional(),
 });
@@ -77,26 +82,15 @@ export default function EditAppointmentPage() {
   const [dialogTitle, setDialogTitle] = useState("");
   const [dialogMessage, setDialogMessage] = useState("");
 
-  // Add direct form state for controlled inputs
-  const [formValues, setFormValues] = useState({
-    title: appointment?.data?.title || "",
-    date: "",
-    time: "",
-    duration: "30",
-    participants: "",
-    location: "",
-    description: "",
-  });
-
   // Initialize form
   const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentFormSchema),
     defaultValues: {
-      title: appointment?.data?.title || "",
+      title: "",
       date: "",
       time: "",
       duration: "30",
-      participants: "",
+      participants: [{ name: "", email: "" }],
       location: "",
       description: "",
     },
@@ -136,97 +130,38 @@ export default function EditAppointmentPage() {
         const responseData = await response.json();
         console.log("API Response:", responseData);
 
-        // Store full response in state
         setAppointment(responseData);
-
-        // Extract the actual appointment data from the nested structure
         const data = responseData.data || responseData;
-        console.log("Using data:", data);
 
-        // Extract title directly
-        const title = data.title || "";
+        if (data) {
+          const startTime = new Date(data.start_time);
+          const formattedDate = startTime.toISOString().split("T")[0];
+          const formattedTime = startTime
+            .toTimeString()
+            .split(" ")[0]
+            .slice(0, 5);
+          const endTime = new Date(data.end_time);
+          const durationInMinutes = Math.round(
+            (endTime.getTime() - startTime.getTime()) / (1000 * 60)
+          );
 
-        // Parse start and end times
-        const start = new Date(data.start_time || new Date());
-        const end = new Date(data.end_time || new Date());
+          const formattedParticipants = data.participants?.map((p: any) => ({
+            name: p.name || "",
+            email: p.email || "",
+          })) || [{ name: "", email: "" }];
 
-        // Calculate duration
-        const durationInMinutes =
-          Math.round((end.getTime() - start.getTime()) / 60000) || 30;
-
-        // Format date as YYYY-MM-DD
-        const datePart = start.toISOString().split("T")[0];
-
-        // Format time as HH:MM
-        const hours = start.getHours().toString().padStart(2, "0");
-        const minutes = start.getMinutes().toString().padStart(2, "0");
-        const timePart = `${hours}:${minutes}`;
-
-        // Process participants - handle any format
-        let participantsString = "";
-        try {
-          if (data.participants) {
-            // Handle nested arrays
-            const flattenedParticipants = Array.isArray(data.participants[0])
-              ? data.participants.flat()
-              : data.participants;
-
-            // Extract emails from any format
-            participantsString = flattenedParticipants
-              .filter(Boolean)
-              .map((p: any) => {
-                if (typeof p === "string") return p;
-                if (p && typeof p === "object")
-                  return p.email || p.name || String(p);
-                return String(p);
-              })
-              .filter(Boolean)
-              .join(", ");
-          }
-        } catch (e) {
-          console.error("Error processing participants:", e);
-          participantsString = "";
+          form.reset({
+            title: data.title || "",
+            date: formattedDate,
+            time: formattedTime,
+            duration: durationInMinutes.toString(),
+            participants: formattedParticipants,
+            location: data.location || "",
+            description: data.description || "",
+          });
         }
 
-        // Create the values object
-        const newFormValues = {
-          title: title,
-          date: datePart,
-          time: timePart,
-          duration: durationInMinutes.toString(),
-          participants: participantsString,
-          location: data.location || "",
-          description: data.description || "",
-        };
-
-        console.log("Setting form values:", newFormValues);
-
-        // Apply values to both states
-        setFormValues(newFormValues);
-
-        // Clear form first to ensure React properly resets internal state
-        form.reset();
-
-        // Wait a small amount of time to ensure the reset takes effect
-        setTimeout(() => {
-          // Apply values to form
-          form.reset(newFormValues);
-
-          // Force-set field values to ensure they appear
-          Object.keys(newFormValues).forEach((key) => {
-            const fieldKey = key as keyof AppointmentFormValues;
-            form.setValue(fieldKey, newFormValues[fieldKey], {
-              shouldValidate: false,
-              shouldDirty: false,
-              shouldTouch: false,
-            });
-          });
-
-          console.log("Form values after setting:", form.getValues());
-
-          // Remove loading state
-          setIsLoading(false);
-        }, 50);
+        setIsLoading(false);
       } catch (error) {
         console.error("Error fetching appointment:", error);
         showDialog("Error", "Failed to load appointment details.");
@@ -249,10 +184,9 @@ export default function EditAppointmentPage() {
       const endDate = new Date(startDate);
       endDate.setMinutes(endDate.getMinutes() + durationInMinutes);
 
-      const participantsList = data.participants
-        .split(",")
-        .map((email) => email.trim())
-        .filter((email) => email);
+      const participantsList =  data?.participants.filter(
+        (p) => p.email && p.name
+      );
 
       // Prepare update payload
       const updatePayload = {
@@ -265,8 +199,10 @@ export default function EditAppointmentPage() {
         status: appointment?.data?.status || "upcoming",
         user_id: appointment?.data?.user_id,
       };
+      console.log("Update payload:", updatePayload);
 
       const token = localStorage.getItem("token");
+
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/embeddings/appointments/${appointmentId}`,
@@ -325,8 +261,7 @@ export default function EditAppointmentPage() {
       </div>
     );
   }
-  console.log(appointment?.data.title);
-  // Only render the form when not loading
+
   return (
     <div className="container py-6">
       <div className="mx-auto max-w-3xl">
@@ -347,18 +282,7 @@ export default function EditAppointmentPage() {
                   <FormItem>
                     <FormLabel>Title</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Meeting title"
-                        {...field}
-                        value={formValues.title}
-                        onChange={(e) => {
-                          field.onChange(e);
-                          setFormValues({
-                            ...formValues,
-                            title: e.target.value,
-                          });
-                        }}
-                      />
+                      <Input placeholder="Meeting title" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -375,19 +299,7 @@ export default function EditAppointmentPage() {
                       <FormControl>
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            type="date"
-                            className="pl-10"
-                            {...field}
-                            value={formValues.date}
-                            onChange={(e) => {
-                              field.onChange(e);
-                              setFormValues({
-                                ...formValues,
-                                date: e.target.value,
-                              });
-                            }}
-                          />
+                          <Input type="date" className="pl-10" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -404,19 +316,7 @@ export default function EditAppointmentPage() {
                       <FormControl>
                         <div className="relative">
                           <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            type="time"
-                            className="pl-10"
-                            {...field}
-                            value={formValues.time}
-                            onChange={(e) => {
-                              field.onChange(e);
-                              setFormValues({
-                                ...formValues,
-                                time: e.target.value,
-                              });
-                            }}
-                          />
+                          <Input type="time" className="pl-10" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -436,14 +336,6 @@ export default function EditAppointmentPage() {
                         <select
                           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           {...field}
-                          value={formValues.duration}
-                          onChange={(e) => {
-                            field.onChange(e);
-                            setFormValues({
-                              ...formValues,
-                              duration: e.target.value,
-                            });
-                          }}
                         >
                           <option value="15">15 minutes</option>
                           <option value="30">30 minutes</option>
@@ -461,39 +353,70 @@ export default function EditAppointmentPage() {
                 <FormField
                   control={form.control}
                   name="participants"
-                  render={({ field }) => {
-                    console.log(
-                      "Rendering participants field with value:",
-                      field.value
-                    );
-                    return (
-                      <FormItem>
-                        <FormLabel>Participants</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                              placeholder="Enter email addresses"
-                              className="pl-10"
-                              {...field}
-                              value={formValues.participants}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                setFormValues({
-                                  ...formValues,
-                                  participants: e.target.value,
-                                });
-                              }}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                          Separate multiple emails with commas
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Participants</FormLabel>
+                      <FormControl>
+                        <div className="space-y-2">
+                          {field.value.map((participant, idx) => (
+                            <div key={idx} className="flex gap-2 items-center">
+                              <Input
+                                placeholder="Name"
+                                value={participant.name}
+                                onChange={(e) => {
+                                  const updated = [...field.value];
+                                  updated[idx].name = e.target.value;
+                                  field.onChange(updated);
+                                }}
+                                className="w-1/3"
+                              />
+                              <Input
+                                placeholder="Email"
+                                value={participant.email}
+                                onChange={(e) => {
+                                  const updated = [...field.value];
+                                  updated[idx].email = e.target.value;
+                                  field.onChange(updated);
+                                }}
+                                className="w-2/3"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const updated = field.value.filter(
+                                    (_, i) => i !== idx
+                                  );
+                                  field.onChange(updated);
+                                }}
+                                disabled={field.value.length === 1}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              field.onChange([
+                                ...field.value,
+                                { name: "", email: "" },
+                              ])
+                            }
+                          >
+                            Add Participant
+                          </Button>
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        Add participant names and emails.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
 
@@ -510,14 +433,6 @@ export default function EditAppointmentPage() {
                           placeholder="Meeting location or link"
                           className="pl-10"
                           {...field}
-                          value={formValues.location}
-                          onChange={(e) => {
-                            field.onChange(e);
-                            setFormValues({
-                              ...formValues,
-                              location: e.target.value,
-                            });
-                          }}
                         />
                       </div>
                     </FormControl>
@@ -537,14 +452,6 @@ export default function EditAppointmentPage() {
                         className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         placeholder="Add any additional details about the appointment"
                         {...field}
-                        value={formValues.description}
-                        onChange={(e) => {
-                          field.onChange(e);
-                          setFormValues({
-                            ...formValues,
-                            description: e.target.value,
-                          });
-                        }}
                       />
                     </FormControl>
                     <FormMessage />

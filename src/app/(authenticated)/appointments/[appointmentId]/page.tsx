@@ -687,7 +687,7 @@ export default function AppointmentDetailsPage() {
                         Check Participant Availability
                       </h3>
                       <AvailabilityChecker
-                        participantEmails={newParticipantEmail}
+                        participantEmails={[{ name: newParticipantName, email: newParticipantEmail }]}
                         startTime={new Date(appointment.start_time)}
                         endTime={new Date(appointment.end_time)}
                         onAvailabilityChecked={handleAvailabilityChecked}

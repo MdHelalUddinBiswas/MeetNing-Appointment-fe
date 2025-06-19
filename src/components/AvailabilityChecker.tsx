@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AlertCircle, CheckCircle, Clock } from "lucide-react";
 
 interface AvailabilityCheckerProps {
-  participantEmails: string;
+  participantEmails: { name: string; email: string }[];
   startTime: Date;
   endTime: Date;
   onAvailabilityChecked?: (hasConflicts: boolean, conflicts: any[]) => void;
@@ -42,7 +42,10 @@ export default function AvailabilityChecker({
       setError(null);
 
       // Validate inputs
-      if (!participantEmails.trim()) {
+      const emails = participantEmails
+        .map((p) => (p.email || '').trim())
+        .filter((email) => email);
+      if (emails.length === 0) {
         setError("Please add at least one participant email");
         return;
       }
@@ -54,11 +57,7 @@ export default function AvailabilityChecker({
 
       setIsChecking(true);
 
-      // Extract emails from the comma-separated string
-      const emails = participantEmails
-        .split(",")
-        .map((email) => email.trim())
-        .filter((email) => email);
+      // emails already extracted above
 
       // Format the API URL with proper parameters - making sure to use the correct backend URL
       // Ensure this matches the route registered in the backend (api/conflicts/check)
@@ -132,7 +131,7 @@ export default function AvailabilityChecker({
         <button
           type="button"
           onClick={checkAvailability}
-          disabled={isChecking || !participantEmails.trim()}
+          disabled={isChecking || participantEmails.length === 0 || participantEmails.some(p => !(p.email && p.email.trim()))}
           className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded hover:bg-blue-200 disabled:opacity-50"
         >
           <Clock size={18} />

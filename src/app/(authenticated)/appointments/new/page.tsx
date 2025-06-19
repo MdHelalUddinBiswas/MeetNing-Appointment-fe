@@ -51,14 +51,20 @@ const appointmentFormSchema = z.object({
   duration: z.string().min(1, {
     message: "Please select a duration.",
   }),
-  participants: z.string().min(3, {
-    message: "Please add at least one participant email.",
-  }),
+  participants: z
+    .array(
+      z.object({
+        name: z.string().min(1, { message: "Name is required" }),
+        email: z.string().email({ message: "Invalid email address" }),
+      })
+    )
+    .min(1, { message: "Please add at least one participant." }),
   location: z.string().optional(),
   description: z.string().optional(),
 });
 
 type AppointmentFormValues = z.infer<typeof appointmentFormSchema>;
+
 interface GoogleAuthResponse {
   access_token: string;
   expires_in?: number;
@@ -84,7 +90,7 @@ export default function NewAppointmentPage() {
       date: new Date().toISOString().split("T")[0], // Today's date in YYYY-MM-DD format
       time: "",
       duration: "30",
-      participants: "",
+      participants: [{ name: "", email: "" }],
       location: "",
       description: "",
     },
@@ -96,7 +102,7 @@ export default function NewAppointmentPage() {
     start_time: string;
     end_time: string;
     location: string;
-    participants: string[];
+    participants: { name: string; email: string }[];
     status: string;
     timezone?: string;
     userId?: string | number;
@@ -151,11 +157,10 @@ export default function NewAppointmentPage() {
       const durationInMinutes = parseInt(data.duration, 10);
       endDateTime.setMinutes(endDateTime.getMinutes() + durationInMinutes);
 
-      // Process participants into an array
-      const participantsArray = data.participants
-        .split(",")
-        .map((email) => email.trim())
-        .filter((email) => email.length > 0);
+      // Use participants as array of objects
+      const participantsArray = data?.participants.filter(
+        (p) => p.email && p.name
+      );
 
       // Check if Google Meet link was generated
       let meetingUrl = data.location || "";
@@ -175,7 +180,7 @@ export default function NewAppointmentPage() {
         start_time: new Date(`${data.date}T${data.time}`).toISOString(), // Convert to ISO format
         end_time: endDateTime.toISOString(),
         location: meetingUrl || "",
-        participants: participantsArray,
+        participants: participantsArray, // Now array of { name, email }
         status: "upcoming",
         timezone: Timezone,
       };
@@ -221,7 +226,7 @@ export default function NewAppointmentPage() {
           body: JSON.stringify({
             from: "Helal@gmail.com",
             fromName: user?.name || "A colleague",
-            to: participantsArray,
+            to: participantsArray.map((p) => p.email),
             subject: `Invitation: ${data.title}`,
             appointmentTitle: data.title,
             startTime: startDate.toISOString(),
@@ -231,6 +236,7 @@ export default function NewAppointmentPage() {
             addedAt: new Date().toISOString(),
             useNodemailer: true,
             timezone: userTimezone,
+            participantNames: participantsArray.map((p) => p.name),
           }),
         });
 
@@ -326,12 +332,11 @@ export default function NewAppointmentPage() {
 
       let attendees: { email: string }[] = [];
       const participantsValue = form.getValues("participants");
-      if (participantsValue) {
+
+      if (participantsValue && Array.isArray(participantsValue)) {
         attendees = participantsValue
-          .split(",")
-          .map((email) => email.trim())
-          .filter((email) => email.length > 0)
-          .map((email) => ({ email }));
+          .filter((p) => p.email && p.email.trim())
+          .map((p) => ({ email: p.email.trim() }));
       }
 
       const response = await fetch(
@@ -494,17 +499,62 @@ export default function NewAppointmentPage() {
                     <FormItem>
                       <FormLabel>Participants</FormLabel>
                       <FormControl>
-                        <div className="relative">
-                          <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            placeholder="Email addresses (comma separated)"
-                            className="pl-10"
-                            {...field}
-                          />
+                        <div className="space-y-2">
+                          {field.value.map((participant, idx) => (
+                            <div key={idx} className="flex gap-2 items-center">
+                              <Input
+                                placeholder="Name"
+                                value={participant.name}
+                                onChange={(e) => {
+                                  const updated = [...field.value];
+                                  updated[idx].name = e.target.value;
+                                  field.onChange(updated);
+                                }}
+                                className="w-1/3"
+                              />
+                              <Input
+                                placeholder="Email"
+                                value={participant?.email}
+                                onChange={(e) => {
+                                  const updated = [...field?.value];
+                                  updated[idx].email = e.target.value;
+                                  field.onChange(updated);
+                                }}
+                                className="w-2/3"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const updated = field.value.filter(
+                                    (_, i) => i !== idx
+                                  );
+                                  field.onChange(updated);
+                                }}
+                                disabled={field.value.length === 1}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              field.onChange([
+                                ...field.value,
+                                { name: "", email: "" },
+                              ])
+                            }
+                          >
+                            Add Participant
+                          </Button>
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Add email addresses separated by commas.
+                        Add participant names and emails.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
