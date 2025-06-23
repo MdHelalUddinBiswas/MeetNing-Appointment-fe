@@ -225,9 +225,13 @@ export default function AppointmentDetailsPage() {
     });
   };
 
-  const handleAddParticipant = async () => {
+  const handleAddParticipant = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!state.appointment) {
-      dispatch({ type: "SET_ERROR", payload: "Appointment data is not available." });
+      dispatch({
+        type: "SET_ERROR",
+        payload: "Appointment data is not available.",
+      });
       return;
     }
     if (!newParticipantEmail) {
@@ -577,7 +581,10 @@ export default function AppointmentDetailsPage() {
                 {appointment.participants?.length > 0 ? (
                   <ul className="list-disc pl-5 space-y-1">
                     {appointment.participants.map((p, index) => (
-                      <li key={index}>{p.email}</li>
+                      <div className="flex items-center gap-2" key={index}>
+                        <span>Name: {p?.name}</span>
+                        <span>Email: {p?.email}</span>
+                      </div>
                     ))}
                   </ul>
                 ) : (
@@ -636,6 +643,7 @@ export default function AppointmentDetailsPage() {
                 <Button>Add Participant</Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
+                <form onSubmit={handleAddParticipant}>
                 <DialogHeader>
                   <DialogTitle>Add New Participant</DialogTitle>
                   <DialogDescription>
@@ -665,11 +673,12 @@ export default function AppointmentDetailsPage() {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="name" className="text-right">
-                      Name (Optional)
+                      Name 
                     </Label>
                     <Input
                       id="name"
                       value={newParticipantName}
+                      required
                       onChange={(e) =>
                         dispatch({
                           type: "SET_PARTICIPANT_FIELD",
@@ -687,7 +696,12 @@ export default function AppointmentDetailsPage() {
                         Check Participant Availability
                       </h3>
                       <AvailabilityChecker
-                        participantEmails={[{ name: newParticipantName, email: newParticipantEmail }]}
+                        participantEmails={[
+                          {
+                            name: newParticipantName,
+                            email: newParticipantEmail,
+                          },
+                        ]}
                         startTime={new Date(appointment.start_time)}
                         endTime={new Date(appointment.end_time)}
                         onAvailabilityChecked={handleAvailabilityChecked}
@@ -725,10 +739,11 @@ export default function AppointmentDetailsPage() {
                   >
                     Cancel
                   </Button>
-                  <Button onClick={handleAddParticipant}>
+                  <Button type="submit">
                     Add Participant
                   </Button>
                 </DialogFooter>
+                </form>
               </DialogContent>
             </Dialog>
           </div>

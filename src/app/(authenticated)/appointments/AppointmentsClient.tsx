@@ -30,24 +30,10 @@ export interface Appointment {
   description?: string;
   location?: string;
   role?: string;
-  participants: string[];
+  participants?: { email: string; name?: string }[];
   status?: "upcoming" | "completed" | "canceled";
   created_at?: string;
   user_id?: string;
-  raw_metadata?: {
-    id: string;
-    title: string;
-    start_time: string;
-    end_time: string;
-    description?: string;
-    location?: string;
-    role?: string;
-    participants: { email: string; name?: string }[];
-    status?: "upcoming" | "completed" | "canceled";
-    created_at?: string;
-    user_id?: string;
-    [key: string]: any; // Allow for other metadata properties
-  };
 }
 
 interface AppointmentsClientProps {
@@ -68,8 +54,8 @@ const filterAppointments = (
     filtered = filtered.filter((appointment) => {
       const searchableText = [
         appointment.title,
-        (appointment.raw_metadata?.participants ?? []).map((p) => p.email).join(" "),
-        appointment.location,
+        (appointment?.participants ?? []).map((p) => p?.email).join(" "),
+        (appointment?.participants ?? []).map((p) => p?.name).join(" "),
       ]
         .filter(Boolean)
         .join(" ")
@@ -269,26 +255,7 @@ export default function AppointmentsClient({
                         <Clock className="flex-shrink-0 mx-1.5 h-4 w-4 text-gray-400" />
                         <span>
                           {(() => {
-                            // Try to get duration from metadata first if available
-                            if (appointment.raw_metadata?.duration_minutes) {
-                              const duration = appointment.raw_metadata
-                                .duration_minutes as number;
-                              // Format as hours and minutes for durations >= 60 minutes
-                              if (duration >= 60) {
-                                return `${Math.floor(duration / 60)}h ${
-                                  duration % 60
-                                }m`;
-                              } else {
-                                return `${duration} mins`;
-                              }
-                            }
-
-                            // Fall back to calculating from timestamps
                             try {
-                              // Use the user's timezone if available
-                              const userTimezone = user?.timezone || "UTC";
-
-                              // Parse dates with the user's timezone
                               const startTime = new Date(
                                 appointment.start_time
                               );
@@ -320,10 +287,8 @@ export default function AppointmentsClient({
                       </div>
                       <div className="mt-2 flex items-center text-sm text-gray-500">
                         <span className="truncate">
-                          {appointment?.raw_metadata?.participants?.length || 0}{" "}
-                          participant
-                          {(appointment?.raw_metadata?.participants?.length ||
-                            0) !== 1
+                          {appointment?.participants?.length || 0} participant
+                          {(appointment?.participants?.length || 0) !== 1
                             ? "s"
                             : ""}
                           {appointment.location && ` • ${appointment.location}`}
