@@ -1,9 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Maximize2, Minimize2, Send, BotMessageSquare, Mic, MicOff, Square, Play, Pause } from "lucide-react";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import {
+  X,
+  Maximize2,
+  Minimize2,
+  Send,
+  BotMessageSquare,
+  Mic,
+  MicOff,
+  Square,
+  Play,
+  Pause,
+} from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   role: "user" | "assistant";
@@ -18,12 +29,13 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hello! How can I help you with your appointments today? You can type or use voice messages 🎤",
+      content:
+        "Hello! How can I help you with your appointments today? You can type or use voice messages 🎤",
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Audio recording states
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -53,28 +65,28 @@ export default function ChatWidget() {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const startRecording = async () => {
     if (!hasAudioSupport) {
-      alert('Audio recording is not supported in your browser');
+      alert("Audio recording is not supported in your browser");
       return;
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           sampleRate: 44100,
-        }
+        },
       });
-      
+
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
+        mimeType: "audio/webm;codecs=opus",
       });
-      
+
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -85,29 +97,28 @@ export default function ChatWidget() {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { 
-          type: 'audio/webm;codecs=opus' 
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm;codecs=opus",
         });
         setAudioBlob(audioBlob);
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
-        
+
         // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
       };
 
       mediaRecorder.start(1000); // Collect data every second
       setIsRecording(true);
       setRecordingTime(0);
-      
+
       // Start timer
       recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
-
     } catch (error) {
-      console.error('Error starting recording:', error);
-      alert('Could not access microphone. Please check permissions.');
+      console.error("Error starting recording:", error);
+      alert("Could not access microphone. Please check permissions.");
     }
   };
 
@@ -115,7 +126,7 @@ export default function ChatWidget() {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      
+
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
         recordingIntervalRef.current = null;
@@ -150,17 +161,20 @@ export default function ChatWidget() {
 
     setIsLoading(true);
     const formData = new FormData();
-    formData.append('audio', audioBlob, 'recording.webm');
+    formData.append("audio", audioBlob, "recording.webm");
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/audio`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: formData,
-      });
-
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/chat/audio`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: formData,
+        }
+      );
+      console.log(response);
       if (!response.ok) {
         throw new Error("Failed to process audio message");
       }
@@ -174,7 +188,7 @@ export default function ChatWidget() {
         transcription: data.transcription,
         isAudio: true,
       };
-      
+
       setMessages((prev) => [...prev, userMessage]);
 
       // Add assistant response
@@ -182,20 +196,21 @@ export default function ChatWidget() {
         ...prev,
         {
           role: "assistant",
-          content: data.response || "Sorry, I couldn't process your audio message.",
+          content:
+            data.response || "Sorry, I couldn't process your audio message.",
         },
       ]);
 
       // Clear audio after successful send
       clearAudio();
-
     } catch (error) {
       console.error("Audio chat error:", error);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, there was an error processing your audio message. Please try again.",
+          content:
+            "Sorry, there was an error processing your audio message. Please try again.",
         },
       ]);
     } finally {
@@ -337,21 +352,26 @@ export default function ChatWidget() {
                           <span>Voice message</span>
                         </div>
                       )}
-                      {message.role === 'assistant' ? (
+                      {message.role === "assistant" ? (
                         <div className="prose prose-sm max-w-none prose-p:my-0 prose-headings:my-2 prose-ul:my-1 prose-li:my-0">
-                          <ReactMarkdown 
+                          <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
-                              a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />,
+                              a: ({ node, ...props }) => (
+                                <a
+                                  {...props}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline"
+                                />
+                              ),
                             }}
                           >
                             {message.content}
                           </ReactMarkdown>
                         </div>
                       ) : (
-                        <p className="whitespace-pre-wrap">
-                          {message.content}
-                        </p>
+                        <p className="whitespace-pre-wrap">{message.content}</p>
                       )}
                     </div>
                   </div>
@@ -382,37 +402,43 @@ export default function ChatWidget() {
                         <Square size={16} />
                       </button>
                     </div>
-                  ) : audioBlob && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                  ) : (
+                    audioBlob && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={playAudio}
+                              className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-full"
+                            >
+                              {isPlayingAudio ? (
+                                <Pause size={14} />
+                              ) : (
+                                <Play size={14} />
+                              )}
+                            </button>
+                            <span className="text-sm text-gray-600">
+                              Audio recorded ({formatTime(recordingTime)})
+                            </span>
+                          </div>
                           <button
-                            onClick={playAudio}
-                            className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-full"
+                            onClick={clearAudio}
+                            className="text-gray-500 hover:text-gray-700 p-1"
                           >
-                            {isPlayingAudio ? <Pause size={14} /> : <Play size={14} />}
+                            <X size={16} />
                           </button>
-                          <span className="text-sm text-gray-600">
-                            Audio recorded ({formatTime(recordingTime)})
-                          </span>
                         </div>
-                        <button
-                          onClick={clearAudio}
-                          className="text-gray-500 hover:text-gray-700 p-1"
-                        >
-                          <X size={16} />
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={sendAudio}
+                            disabled={isLoading}
+                            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded text-sm disabled:opacity-50"
+                          >
+                            Send Audio
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={sendAudio}
-                          disabled={isLoading}
-                          className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded text-sm disabled:opacity-50"
-                        >
-                          Send Audio
-                        </button>
-                      </div>
-                    </div>
+                    )
                   )}
                 </div>
               )}
@@ -428,7 +454,7 @@ export default function ChatWidget() {
                     className="flex-1 p-2 border rounded text-sm"
                     disabled={isLoading || isRecording}
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         handleSubmit(e);
                       }
@@ -439,8 +465,8 @@ export default function ChatWidget() {
                       type="button"
                       onClick={isRecording ? stopRecording : startRecording}
                       className={`p-2 rounded transition-colors ${
-                        isRecording 
-                          ? "bg-red-500 hover:bg-red-600 text-white" 
+                        isRecording
+                          ? "bg-red-500 hover:bg-red-600 text-white"
                           : "bg-gray-500 hover:bg-gray-600 text-white"
                       }`}
                       disabled={isLoading}
