@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useAuth } from "@/lib/auth-context";
 
 interface Message {
   role: "user" | "assistant";
@@ -35,7 +36,7 @@ export default function ChatWidget() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
+  const { user } = useAuth();
   // Audio recording states
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -162,6 +163,7 @@ export default function ChatWidget() {
     setIsLoading(true);
     const formData = new FormData();
     formData.append("audio", audioBlob, "recording.webm");
+    formData.append("userTimezone", userTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
 
     try {
       const response = await fetch(
@@ -217,7 +219,7 @@ export default function ChatWidget() {
       setIsLoading(false);
     }
   };
-
+  const userTimezone = user?.timezone;
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -237,7 +239,7 @@ export default function ChatWidget() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify({ message: userMessage.content }),
+        body: JSON.stringify({ message: userMessage.content, userTimezone }),
       });
 
       if (!response.ok) {
@@ -285,12 +287,15 @@ export default function ChatWidget() {
   return (
     <div className="fixed bottom-4 right-4 z-50">
       {/* Hidden audio element for playback */}
-      <audio
-        ref={audioElementRef}
-        src={audioUrl}
-        onEnded={() => setIsPlayingAudio(false)}
-        className="hidden"
-      />
+      {/* Only render audio element when there's a URL */}
+      {audioUrl && (
+        <audio
+          ref={audioElementRef}
+          src={audioUrl}
+          onEnded={() => setIsPlayingAudio(false)}
+          className="hidden"
+        />
+      )}
 
       {/* Chat button */}
       {!isOpen && (
